@@ -1,0 +1,22 @@
+services:
+  packing-tracker:
+    build: .
+    image: packing-tracker:local
+    container_name: packing-tracker
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      PGHOST: ${PGHOST:-localhost}
+      PGPORT: ${PGPORT:-5432}
+      PGDATABASE: ${PGDATABASE:-packing_tracker}
+      PGUSER: ${PGUSER:-packing}
+      PGPASSWORD: ${PGPASSWORD:-}
+    restart: unless-stopped
+    networks:
+      - packing-tracker
+
+networks:
+  packing-tracker:
+    name: packing-tracker
