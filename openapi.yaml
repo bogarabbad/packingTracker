@@ -12,7 +12,7 @@ info:
 
     Esta versión publica el estado del servicio, el CRUD de los catálogos
     `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS` y `UNIDADES`, el CRUD de
-    `LOTES_TIPOS_UNIDADES` y el CRUD de `UNIDADES_TRANSPORTE`.
+    `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES` y el CRUD de `UNIDADES_TRANSPORTE`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -48,6 +48,11 @@ tags:
       Relación `LOTES_TIPOS_UNIDADES`.
       Indica en qué unidades de medida puede contar productos un tipo de lote final.
       La caja nace ligada a la unidad. El tambo nace ligado al litro y al kilo.
+  - name: Lotes
+    description: |
+      Registro `LOTES`.
+      Una caja o un tambo puede ir dentro de una tarima.
+      Solo la tarima puede apuntar a la unidad de transporte.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -429,6 +434,99 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /lotes:
+    get:
+      tags: [Lotes]
+      operationId: listLotes
+      summary: Lista los lotes
+      responses:
+        '200':
+          description: Lotes ordenados por `ID`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteLista'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Lotes]
+      operationId: createLote
+      summary: Crea un lote
+      requestBody:
+        $ref: '#/components/requestBodies/Lote'
+      responses:
+        '201':
+          description: Lote creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLote'
+        '400':
+          $ref: '#/components/responses/ErrorLote'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Lotes]
+      operationId: getLote
+      summary: Obtiene un lote
+      responses:
+        '200':
+          description: Lote.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLote'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Lotes]
+      operationId: updateLote
+      summary: Reemplaza un lote
+      description: |
+        Reemplaza `ID_TIPO`, `PADRE_ID` e `ID_UNIDAD`.
+        Si `PADRE_ID` o `ID_UNIDAD` no vienen, se guardan como `null`.
+        Una categoría final no lleva unidad de transporte y solo puede colgar de una categoría que no es final.
+        Una categoría que no es final no tiene padre.
+      requestBody:
+        $ref: '#/components/requestBodies/Lote'
+      responses:
+        '200':
+          description: Lote actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLote'
+        '400':
+          $ref: '#/components/responses/ErrorLote'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Lotes]
+      operationId: deleteLote
+      summary: Elimina un lote
+      description: |
+        También elimina los productos de ese lote.
+        Responde `409` si otro lote lo tiene como padre o si está embarcado en una expedición.
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/LoteEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /unidades-medida:
     get:
       tags: [Unidades de medida]
@@ -665,6 +763,18 @@ components:
           example:
             ID_TIPO: 1
             ID_UNIDAD: 1
+    Lote:
+      required: true
+      description: |
+        `PADRE_ID` e `ID_UNIDAD` se pueden omitir. El servicio los guarda como `null`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteEntrada'
+          example:
+            ID_TIPO: 1
+            PADRE_ID: null
+            ID_UNIDAD: null
     Catalogo:
       required: true
       content:
@@ -838,6 +948,42 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_tipo_lote
+    ErrorLote:
+      description: |
+        El cuerpo no cumple la jerarquía del lote.
+        `error.error` puede ser `invalid_body`, `invalid_id_tipo`, `invalid_padre_id`,
+        `invalid_id_unidad`, `invalid_tipo_lote` o `invalid_lote`.
+        `invalid_id_unidad` también responde cuando una categoría final trae unidad de transporte
+        o cuando esa unidad no existe.
+        `invalid_lote` responde cuando una categoría final intenta contener otro lote.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            padre:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_padre_id
+            unidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_unidad
+    LoteEnUso:
+      description: Otro lote lo tiene como padre o el lote está embarcado en una expedición.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: record_in_use
     ErrorRelacionLote:
       description: |
         El cuerpo no es válido, el tipo o la unidad no existen, o el tipo no es final.
@@ -1025,6 +1171,22 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/LoteTipo'
+    RespuestaLote:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Lote'
+    RespuestaLoteLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Lote'
     RespuestaLoteTipoUnidad:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -1206,6 +1368,45 @@ components:
           type: integer
           minimum: 1
       description: '`ES_SEMILLA` se ignora. El tipo de lote tiene que ser final.'
+    Lote:
+      type: object
+      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a `LOTES_TIPOS`.
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Lote que lo contiene. Solo una categoría final puede tener padre, y ese padre no es final.
+        ID_UNIDAD:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Unidad de transporte. Solo la puede llevar una categoría que no es final.
+    LoteEntrada:
+      type: object
+      required: [ID_TIPO]
+      properties:
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_UNIDAD:
+          type: integer
+          nullable: true
+          minimum: 1
+      description: |
+        En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
     LoteTipo:
       type: object
       required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
