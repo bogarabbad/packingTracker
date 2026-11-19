@@ -1,0 +1,391 @@
+openapi: 3.0.3
+info:
+  title: packingTracker
+  version: 0.1.0
+  license:
+    name: GPL-3.0-only
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+  description: |
+    API para la trazabilidad de la mercancía que se carga en un camión.
+    El documento de carga es el packing list, identificado por folio.
+    El servicio es agnóstico y otros sistemas lo consumen por HTTP.
+
+    Esta versión publica el estado del servicio y el CRUD de los catálogos
+    `UNIDADES_ESTATUS` y `UNIDADES_TIPOS`.
+
+    Una ruta que no existe responde `404` con `error` en `not_found` y el campo `path`.
+    Esta versión no exige autenticación.
+security: []
+servers:
+  - url: http://localhost:3000
+    description: API publicada en el host
+  - url: http://packing-tracker:3000
+    description: API dentro de la red Docker packing-tracker
+tags:
+  - name: Salud
+    description: Disponibilidad del proceso y de PostgreSQL.
+  - name: Estatus de unidades
+    description: Catálogo `UNIDADES_ESTATUS`.
+  - name: Tipos de unidades
+    description: Catálogo `UNIDADES_TIPOS`.
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      operationId: getHealth
+      summary: Estado del servicio y de la base de datos
+      responses:
+        '200':
+          description: La API responde y PostgreSQL acepta la conexión.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: ok
+                service: packing-tracker
+                checks:
+                  api:
+                    status: ok
+                  database:
+                    status: ok
+        '503':
+          description: La API responde, pero PostgreSQL no acepta la conexión.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: degraded
+                service: packing-tracker
+                checks:
+                  api:
+                    status: ok
+                  database:
+                    status: error
+  /unidades-estatus:
+    get:
+      tags: [Estatus de unidades]
+      operationId: listUnidadesEstatus
+      summary: Lista los estatus de unidad
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogoLista'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Estatus de unidades]
+      operationId: createUnidadEstatus
+      summary: Crea un estatus de unidad
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '201':
+          $ref: '#/components/responses/CatalogoCreado'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-estatus/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Estatus de unidades]
+      operationId: getUnidadEstatus
+      summary: Obtiene un estatus de unidad
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Estatus de unidades]
+      operationId: updateUnidadEstatus
+      summary: Reemplaza un estatus de unidad
+      description: |
+        Reemplaza `CODIGO`, `NOMBRE` y `ACTIVO`. Si `ACTIVO` no viene en el cuerpo, se guarda `true`.
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Estatus de unidades]
+      operationId: deleteUnidadEstatus
+      summary: Elimina un estatus de unidad
+      responses:
+        '204':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/RegistroEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-tipos:
+    get:
+      tags: [Tipos de unidades]
+      operationId: listUnidadesTipos
+      summary: Lista los tipos de unidad
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogoLista'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tipos de unidades]
+      operationId: createUnidadTipo
+      summary: Crea un tipo de unidad
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '201':
+          $ref: '#/components/responses/CatalogoCreado'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-tipos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de unidades]
+      operationId: getUnidadTipo
+      summary: Obtiene un tipo de unidad
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tipos de unidades]
+      operationId: updateUnidadTipo
+      summary: Reemplaza un tipo de unidad
+      description: |
+        Reemplaza `CODIGO`, `NOMBRE` y `ACTIVO`. Si `ACTIVO` no viene en el cuerpo, se guarda `true`.
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tipos de unidades]
+      operationId: deleteUnidadTipo
+      summary: Elimina un tipo de unidad
+      responses:
+        '204':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/RegistroEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Identificador entero positivo, sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+  requestBodies:
+    Catalogo:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CatalogoEntrada'
+          example:
+            CODIGO: disponible
+            NOMBRE: Disponible
+            ACTIVO: true
+  responses:
+    CatalogoLista:
+      description: Catálogo ordenado por `ID`.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Catalogo'
+    Catalogo:
+      description: Registro del catálogo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Catalogo'
+    CatalogoCreado:
+      description: Registro creado. El `ID` lo asigna la base de datos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Catalogo'
+    Eliminado:
+      description: Registro eliminado. La respuesta no tiene cuerpo.
+    IdInvalido:
+      description: El identificador no es un entero positivo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid_id
+    NoEncontrado:
+      description: No existe un registro con ese identificador.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+    ErrorSolicitud:
+      description: |
+        El cuerpo no es válido. `error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_nombre`, `invalid_activo` o `request_error` cuando el JSON no se puede leer.
+        `CODIGO` y `NOMBRE` deben ser texto no vacío después de recortar espacios.
+        `ACTIVO`, si se envía, debe ser booleano.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            codigo:
+              value:
+                error: invalid_codigo
+            nombre:
+              value:
+                error: invalid_nombre
+            activo:
+              value:
+                error: invalid_activo
+            cuerpo:
+              value:
+                error: invalid_body
+    CodigoDuplicado:
+      description: Ya existe un registro con el mismo `CODIGO`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: duplicate_codigo
+    RegistroEnUso:
+      description: Una unidad de transporte todavía referencia el registro.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: record_in_use
+    ErrorInterno:
+      description: Fallo no controlado del servicio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: internal_error
+  schemas:
+    Health:
+      type: object
+      required: [status, service, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        service:
+          type: string
+          example: packing-tracker
+        checks:
+          type: object
+          required: [api, database]
+          properties:
+            api:
+              $ref: '#/components/schemas/Check'
+            database:
+              $ref: '#/components/schemas/Check'
+    Check:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: "`ok` cuando el chequeo pasa. En la base, `error` cuando la conexión falla."
+          enum: [ok, error]
+    Catalogo:
+      type: object
+      required: [ID, CODIGO, NOMBRE, ACTIVO]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+    CatalogoEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios. El valor resultante debe ser único en el catálogo.
+        NOMBRE:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios.
+        ACTIVO:
+          type: boolean
+          default: true
+          description: Si se omite, el servicio guarda `true`.
+      description: Los campos ajenos a este esquema se ignoran.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        path:
+          type: string
+          description: Presente solo cuando la ruta no existe.

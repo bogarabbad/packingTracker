@@ -6,8 +6,12 @@ function errorHandler(err, req, res, next) {
 
   const status = err.status || err.statusCode || 500;
 
+  if (status >= 500) {
+    console.error('request failed', err.code || err.message);
+  }
+
   res.status(status).json({
-    error: status >= 500 ? 'internal_error' : 'request_error',
+    error: err.publicError || (status >= 500 ? 'internal_error' : 'request_error'),
   });
 }
 
