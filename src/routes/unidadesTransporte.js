@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
+const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
 const FIELDS = [
   'ID',
@@ -172,10 +173,20 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT ${FIELDS} FROM "UNIDADES_TRANSPORTE" ORDER BY "ID"`,
+    const page = paginationFromQuery(req.query);
+    const totalResult = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM "UNIDADES_TRANSPORTE"',
     );
-    sendData(res, 200, result.rows.map(mapRow));
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "UNIDADES_TRANSPORTE" ORDER BY "ID" LIMIT $1 OFFSET $2`,
+      [page.items, page.offset],
+    );
+    sendData(
+      res,
+      200,
+      result.rows.map(mapRow),
+      paginationMetadata(page.page, page.items, totalResult.rows[0].total),
+    );
   } catch (err) {
     translate(err);
   }

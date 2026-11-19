@@ -1,13 +1,13 @@
-function envelope(data, error) {
+function envelope(data, error, metadata) {
   return {
     data,
-    _metadata: {},
+    _metadata: metadata || {},
     error,
   };
 }
 
-function sendData(res, status, data) {
-  res.status(status).json(envelope(data, null));
+function sendData(res, status, data, metadata) {
+  res.status(status).json(envelope(data, null, metadata));
 }
 
 function sendError(res, status, error) {

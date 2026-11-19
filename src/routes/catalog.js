@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
+const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
 const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS', 'UNIDADES']);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
@@ -128,8 +129,18 @@ function createCatalogRouter(table) {
 
   router.get('/', async (req, res) => {
     try {
-      const result = await pool.query(`SELECT ${fields} FROM "${table}" ORDER BY "ID"`);
-      sendData(res, 200, result.rows.map((row) => mapRow(row, extra)));
+      const page = paginationFromQuery(req.query);
+      const totalResult = await pool.query(`SELECT COUNT(*)::int AS total FROM "${table}"`);
+      const result = await pool.query(
+        `SELECT ${fields} FROM "${table}" ORDER BY "ID" LIMIT $1 OFFSET $2`,
+        [page.items, page.offset],
+      );
+      sendData(
+        res,
+        200,
+        result.rows.map((row) => mapRow(row, extra)),
+        paginationMetadata(page.page, page.items, totalResult.rows[0].total),
+      );
     } catch (err) {
       translate(err, extra);
     }
