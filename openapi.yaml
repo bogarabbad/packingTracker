@@ -10,8 +10,9 @@ info:
     El documento de carga es el packing list, identificado por folio.
     El servicio es agnóstico y otros sistemas lo consumen por HTTP.
 
-    Esta versión publica el estado del servicio y el CRUD de los catálogos
-    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS` y `LOTES_TIPOS`.
+    Esta versión publica el estado del servicio, el CRUD de los catálogos
+    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS` y `LOTES_TIPOS`, y el CRUD de
+    `UNIDADES_TRANSPORTE`.
 
     Una ruta que no existe responde `404` con `error` en `not_found` y el campo `path`.
     Esta versión no exige autenticación.
@@ -32,6 +33,10 @@ tags:
     description: |
       Catálogo `LOTES_TIPOS`. Caja y tambo son categorías finales y contienen productos.
       La tarima no es final y contiene esas categorías.
+  - name: Unidades de transporte
+    description: |
+      Registro `UNIDADES_TRANSPORTE`.
+      `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` los asigna el servicio.
 paths:
   /health:
     get:
@@ -312,6 +317,101 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /unidades-transporte:
+    get:
+      tags: [Unidades de transporte]
+      operationId: listUnidadesTransporte
+      summary: Lista las unidades de transporte
+      responses:
+        '200':
+          description: Unidades ordenadas por `ID`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnidadTransporte'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Unidades de transporte]
+      operationId: createUnidadTransporte
+      summary: Crea una unidad de transporte
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadTransporte'
+      responses:
+        '201':
+          description: Unidad creada. El `ID` lo asigna la base de datos y `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnidadTransporte'
+        '400':
+          $ref: '#/components/responses/ErrorUnidad'
+        '409':
+          $ref: '#/components/responses/UnidadDuplicada'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-transporte/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Unidades de transporte]
+      operationId: getUnidadTransporte
+      summary: Obtiene una unidad de transporte
+      responses:
+        '200':
+          description: Unidad de transporte.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnidadTransporte'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Unidades de transporte]
+      operationId: updateUnidadTransporte
+      summary: Reemplaza una unidad de transporte
+      description: |
+        Reemplaza los datos editables. Si `ACTIVO` no viene, se guarda `true`.
+        Si un dato opcional no viene, se guarda `null`.
+        `ES_SEMILLA` y `CREADO_EN` no cambian. `ACTUALIZADO_EN` pasa a ser el momento del reemplazo.
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadTransporte'
+      responses:
+        '200':
+          description: Unidad actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnidadTransporte'
+        '400':
+          $ref: '#/components/responses/ErrorUnidad'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/UnidadDuplicada'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Unidades de transporte]
+      operationId: deleteUnidadTransporte
+      summary: Elimina una unidad de transporte
+      responses:
+        '204':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
 components:
   parameters:
     Id:
@@ -346,6 +446,28 @@ components:
           example:
             CODIGO: disponible
             NOMBRE: Disponible
+            ACTIVO: true
+    UnidadTransporte:
+      required: true
+      description: |
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+        Un texto opcional vacío no es válido. Omitirlo guarda `null`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnidadTransporteEntrada'
+          example:
+            CODIGO: UT-010
+            ID_TIPO: 1
+            PLACAS: 84AB3C9
+            NUMERO_ECONOMICO: ECO-10
+            MARCA: Kenworth
+            MODELO: T680
+            ANIO: 2024
+            NUMERO_SERIE: 1XKYDP9X5NJ123010
+            CAPACIDAD_CARGA_KG: 20000
+            CAPACIDAD_VOLUMEN_M3: 80
+            ID_ESTATUS: 1
             ACTIVO: true
   responses:
     CatalogoLista:
@@ -449,6 +571,42 @@ components:
             tipo:
               value:
                 error: invalid_tipo_lote
+    ErrorUnidad:
+      description: |
+        El cuerpo no es válido o el tipo, el estatus o un límite de la unidad no se cumplen.
+        `invalid_id_tipo` e `invalid_id_estatus` también responden cuando ese catálogo no existe.
+        `invalid_anio` cuando el año no está entre 1980 y 2100.
+        Las capacidades, si vienen, son números mayores o iguales a cero y de hasta `9999999999.99`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            placas:
+              value:
+                error: invalid_placas
+            tipo:
+              value:
+                error: invalid_id_tipo
+            anio:
+              value:
+                error: invalid_anio
+    UnidadDuplicada:
+      description: |
+        Ya existe otra unidad con el mismo valor.
+        `error` puede ser `duplicate_codigo`, `duplicate_placas`,
+        `duplicate_numero_economico` o `duplicate_numero_serie`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            codigo:
+              value:
+                error: duplicate_codigo
+            placas:
+              value:
+                error: duplicate_placas
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
@@ -567,6 +725,147 @@ components:
           default: true
           description: Si se omite, el servicio guarda `true`.
       description: Los campos ajenos a este esquema se ignoran.
+    UnidadTransporte:
+      type: object
+      required:
+        - ID
+        - CODIGO
+        - ID_TIPO
+        - PLACAS
+        - NUMERO_ECONOMICO
+        - MARCA
+        - MODELO
+        - ANIO
+        - NUMERO_SERIE
+        - CAPACIDAD_CARGA_KG
+        - CAPACIDAD_VOLUMEN_M3
+        - ID_ESTATUS
+        - ACTIVO
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a `UNIDADES_TIPOS`.
+        PLACAS:
+          type: string
+          minLength: 1
+        NUMERO_ECONOMICO:
+          type: string
+          nullable: true
+          minLength: 1
+        MARCA:
+          type: string
+          nullable: true
+          minLength: 1
+        MODELO:
+          type: string
+          nullable: true
+          minLength: 1
+        ANIO:
+          type: integer
+          nullable: true
+          minimum: 1980
+          maximum: 2100
+        NUMERO_SERIE:
+          type: string
+          nullable: true
+          minLength: 1
+        CAPACIDAD_CARGA_KG:
+          type: number
+          nullable: true
+          minimum: 0
+          description: La base la guarda como `numeric(12,2)`.
+        CAPACIDAD_VOLUMEN_M3:
+          type: number
+          nullable: true
+          minimum: 0
+          description: La base la guarda como `numeric(12,2)`.
+        ID_ESTATUS:
+          type: integer
+          minimum: 1
+          description: Referencia a `UNIDADES_ESTATUS`.
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: |
+            `true` si el registro nació en `seed.sql`.
+            Ese registro se puede modificar y no se puede eliminar.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UnidadTransporteEntrada:
+      type: object
+      required: [CODIGO, ID_TIPO, PLACAS, ID_ESTATUS]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios. El valor resultante debe ser único.
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        PLACAS:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios. El valor resultante debe ser único.
+        NUMERO_ECONOMICO:
+          type: string
+          nullable: true
+          minLength: 1
+        MARCA:
+          type: string
+          nullable: true
+          minLength: 1
+        MODELO:
+          type: string
+          nullable: true
+          minLength: 1
+        ANIO:
+          type: integer
+          nullable: true
+          minimum: 1980
+          maximum: 2100
+        NUMERO_SERIE:
+          type: string
+          nullable: true
+          minLength: 1
+        CAPACIDAD_CARGA_KG:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 9999999999.99
+        CAPACIDAD_VOLUMEN_M3:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 9999999999.99
+        ID_ESTATUS:
+          type: integer
+          minimum: 1
+        ACTIVO:
+          type: boolean
+          default: true
+          description: Si se omite, el servicio guarda `true`.
+      description: |
+        `ES_SEMILLA` se ignora.
+        En el reemplazo, cada campo opcional omitido se guarda como `null`.
     Error:
       type: object
       required: [error]
