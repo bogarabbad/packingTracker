@@ -11,7 +11,7 @@ info:
     El servicio es agnóstico y otros sistemas lo consumen por HTTP.
 
     Esta versión publica el estado del servicio y el CRUD de los catálogos
-    `UNIDADES_ESTATUS` y `UNIDADES_TIPOS`.
+    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS` y `LOTES_TIPOS`.
 
     Una ruta que no existe responde `404` con `error` en `not_found` y el campo `path`.
     Esta versión no exige autenticación.
@@ -28,6 +28,10 @@ tags:
     description: Catálogo `UNIDADES_ESTATUS`.
   - name: Tipos de unidades
     description: Catálogo `UNIDADES_TIPOS`.
+  - name: Tipos de lote
+    description: |
+      Catálogo `LOTES_TIPOS`. Caja y tambo son categorías finales y contienen productos.
+      La tarima no es final: contiene esas categorías y se embarca en la unidad de transporte.
 paths:
   /health:
     get:
@@ -213,6 +217,101 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /lotes-tipos:
+    get:
+      tags: [Tipos de lote]
+      operationId: listLotesTipos
+      summary: Lista los tipos de lote
+      responses:
+        '200':
+          description: Catálogo ordenado por `ID`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoteTipo'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tipos de lote]
+      operationId: createLoteTipo
+      summary: Crea un tipo de lote
+      requestBody:
+        $ref: '#/components/requestBodies/LoteTipo'
+      responses:
+        '201':
+          description: Tipo de lote creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoteTipo'
+        '400':
+          $ref: '#/components/responses/ErrorLoteTipo'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-tipos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de lote]
+      operationId: getLoteTipo
+      summary: Obtiene un tipo de lote
+      responses:
+        '200':
+          description: Tipo de lote.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoteTipo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tipos de lote]
+      operationId: updateLoteTipo
+      summary: Reemplaza un tipo de lote
+      description: |
+        Reemplaza `CODIGO` y `NOMBRE`. Si `ACTIVO` no viene, se guarda `true`.
+        Si `ES_FINAL` o una medida no vienen, se conserva el valor actual.
+        Una categoría final exige al menos una medida. Una categoría que no es final no mide producto.
+      requestBody:
+        $ref: '#/components/requestBodies/LoteTipo'
+      responses:
+        '200':
+          description: Tipo de lote actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoteTipo'
+        '400':
+          $ref: '#/components/responses/ErrorLoteTipo'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tipos de lote]
+      operationId: deleteLoteTipo
+      summary: Elimina un tipo de lote
+      responses:
+        '204':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
 components:
   parameters:
     Id:
@@ -224,6 +323,23 @@ components:
         type: string
         pattern: '^[1-9]\d*$'
   requestBodies:
+    LoteTipo:
+      required: true
+      description: |
+        En el alta, `ES_FINAL` y las medidas que se omiten se guardan como `false`.
+        En el reemplazo, las que se omiten conservan su valor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteTipoEntrada'
+          example:
+            CODIGO: tambo
+            NOMBRE: Tambo
+            ACTIVO: true
+            ES_FINAL: true
+            MIDE_UNIDAD: false
+            MIDE_LITRO: true
+            MIDE_KILO: true
     Catalogo:
       required: true
       content:
@@ -307,7 +423,7 @@ components:
     ConflictoEliminacion:
       description: |
         `seed_not_deletable` cuando el registro es semilla: se puede modificar, no eliminar.
-        `record_in_use` cuando una unidad de transporte todavía lo referencia.
+        `record_in_use` cuando otra fila todavía referencia el registro.
       content:
         application/json:
           schema:
@@ -319,6 +435,21 @@ components:
             en_uso:
               value:
                 error: record_in_use
+    ErrorLoteTipo:
+      description: |
+        El cuerpo no es válido o la combinación de `ES_FINAL` y medidas no cumple la regla del catálogo.
+        `invalid_tipo_lote` también responde cuando el cambio deja lotes o productos inconsistentes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            medida:
+              value:
+                error: invalid_mide_litro
+            tipo:
+              value:
+                error: invalid_tipo_lote
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
@@ -376,6 +507,69 @@ components:
           description: |
             `true` si el registro nació en `init.sql` o `seed.sql`.
             Ese registro se puede modificar y no se puede eliminar.
+    LoteTipo:
+      type: object
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL, MIDE_UNIDAD, MIDE_LITRO, MIDE_KILO]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: Caja, tambo y tarima nacen como semilla. Se pueden modificar y no se eliminan.
+        ES_FINAL:
+          type: boolean
+          description: |
+            `true` en caja y tambo, que contienen productos.
+            `false` en tarima, que contiene lotes finales y se embarca en la unidad.
+        MIDE_UNIDAD:
+          type: boolean
+          description: La caja mide productos por unidad.
+        MIDE_LITRO:
+          type: boolean
+          description: El tambo puede medir litros.
+        MIDE_KILO:
+          type: boolean
+          description: El tambo puede medir kilos.
+    LoteTipoEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+        ES_FINAL:
+          type: boolean
+          default: false
+        MIDE_UNIDAD:
+          type: boolean
+          default: false
+        MIDE_LITRO:
+          type: boolean
+          default: false
+        MIDE_KILO:
+          type: boolean
+          default: false
+      description: |
+        Una categoría final requiere al menos una medida.
+        Una categoría que no es final deja las tres medidas en `false`.
+        `ES_SEMILLA` se ignora.
     CatalogoEntrada:
       type: object
       required: [CODIGO, NOMBRE]
