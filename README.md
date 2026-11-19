@@ -43,6 +43,18 @@ docker compose down
 
 El puerto publicado se puede cambiar con la variable `PORT` del host (por defecto `3000`). Dentro del contenedor el proceso escucha siempre en `3000`.
 
+## Swagger
+
+La especificación está en `openapi.yaml`. Swagger UI corre en otro contenedor y solo la muestra; la API sigue en el puerto `3000`. Desde la raíz del repositorio, en PowerShell:
+
+```powershell
+docker run --rm -p 8080:8080 -e SWAGGER_JSON=/spec/openapi.yaml -v "${PWD}\openapi.yaml:/spec/openapi.yaml" swaggerapi/swagger-ui
+```
+
+Abre `http://localhost:8080`. Ctrl+C detiene el contenedor.
+
+Si el puerto `8080` ya está ocupado, el comando nuevo no arranca y la página sigue sirviendo el contenedor anterior. Detén ese proceso antes de volver a correrlo. La pestaña abierta no se recarga sola: usa Ctrl+F5 para ver el `openapi.yaml` vigente.
+
 ## Integración
 
 La red de Docker se llama `packing-tracker`. Otro Compose puede unirse a ella y llamar al servicio por el nombre `packing-tracker` en el puerto `3000`, sin pasar por el host:
@@ -58,4 +70,4 @@ networks:
     external: true
 ```
 
-El único contrato publicado hoy es `GET /health`, pensado para que el orquestador y los demás servicios comprueben que el contenedor está listo.
+El contrato de la API está en `openapi.yaml`. `GET /health` sirve para que el orquestador y los demás servicios comprueben que el contenedor está listo.

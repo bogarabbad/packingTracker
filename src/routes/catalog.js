@@ -4,20 +4,13 @@ const { httpError } = require('../httpError');
 
 const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS']);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
-const LOTE_TIPO_FLAGS = [
-  ['ES_FINAL', 'invalid_es_final'],
-  ['MIDE_UNIDAD', 'invalid_mide_unidad'],
-  ['MIDE_LITRO', 'invalid_mide_litro'],
-  ['MIDE_KILO', 'invalid_mide_kilo'],
-];
 
 function fieldsFor(table) {
   if (table !== 'LOTES_TIPOS') {
     return FIELDS;
   }
 
-  const flags = LOTE_TIPO_FLAGS.map(([name]) => `"${name}"`).join(', ');
-  return `${FIELDS}, ${flags}`;
+  return `${FIELDS}, "ES_FINAL"`;
 }
 
 function mapRow(row) {
@@ -29,10 +22,8 @@ function mapRow(row) {
     ES_SEMILLA: row.ES_SEMILLA,
   };
 
-  for (const [name] of LOTE_TIPO_FLAGS) {
-    if (Object.prototype.hasOwnProperty.call(row, name)) {
-      mapped[name] = row[name];
-    }
+  if (Object.prototype.hasOwnProperty.call(row, 'ES_FINAL')) {
+    mapped.ES_FINAL = row.ES_FINAL;
   }
 
   return mapped;
@@ -66,7 +57,7 @@ function parseFlag(value, error, fallback) {
   return value;
 }
 
-function parseBody(body, { loteTipo = false, keepFlags = false } = {}) {
+function parseBody(body, { loteTipo = false, keepFinal = false } = {}) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
   }
@@ -85,9 +76,7 @@ function parseBody(body, { loteTipo = false, keepFlags = false } = {}) {
   }
 
   if (loteTipo) {
-    for (const [name, error] of LOTE_TIPO_FLAGS) {
-      record[name] = parseFlag(body[name], error, keepFlags ? undefined : false);
-    }
+    record.ES_FINAL = parseFlag(body.ES_FINAL, 'invalid_es_final', keepFinal ? undefined : false);
   }
 
   return record;
@@ -122,7 +111,7 @@ function createCatalogRouter(table) {
   const fields = fieldsFor(table);
   const columns = ['CODIGO', 'NOMBRE', 'ACTIVO'];
   if (loteTipo) {
-    columns.push(...LOTE_TIPO_FLAGS.map(([name]) => name));
+    columns.push('ES_FINAL');
   }
 
   const router = express.Router();
@@ -172,22 +161,18 @@ function createCatalogRouter(table) {
 
   router.put('/:id', async (req, res) => {
     const id = parseId(req.params.id);
-    const record = parseBody(req.body, { loteTipo, keepFlags: true });
+    const record = parseBody(req.body, { loteTipo, keepFinal: true });
     try {
-      if (loteTipo) {
+      if (loteTipo && record.ES_FINAL === undefined) {
         const current = await pool.query(
-          `SELECT ${fields} FROM "${table}" WHERE "ID" = $1`,
+          `SELECT "ES_FINAL" FROM "${table}" WHERE "ID" = $1`,
           [id],
         );
         const row = current.rows[0];
         if (!row) {
           throw httpError(404, 'not_found');
         }
-        for (const [name] of LOTE_TIPO_FLAGS) {
-          if (record[name] === undefined) {
-            record[name] = row[name];
-          }
-        }
+        record.ES_FINAL = row.ES_FINAL;
       }
 
       const assignments = columns.map((name, index) => `"${name}" = $${index + 1}`).join(', ');

@@ -31,7 +31,7 @@ tags:
   - name: Tipos de lote
     description: |
       Catálogo `LOTES_TIPOS`. Caja y tambo son categorías finales y contienen productos.
-      La tarima no es final: contiene esas categorías y se embarca en la unidad de transporte.
+      La tarima no es final y contiene esas categorías.
 paths:
   /health:
     get:
@@ -278,8 +278,8 @@ paths:
       summary: Reemplaza un tipo de lote
       description: |
         Reemplaza `CODIGO` y `NOMBRE`. Si `ACTIVO` no viene, se guarda `true`.
-        Si `ES_FINAL` o una medida no vienen, se conserva el valor actual.
-        Una categoría final exige al menos una medida. Una categoría que no es final no mide producto.
+        Si `ES_FINAL` no viene, se conserva el valor actual.
+        Un tipo que deja de ser final no puede conservar unidades de medida relacionadas.
       requestBody:
         $ref: '#/components/requestBodies/LoteTipo'
       responses:
@@ -326,8 +326,8 @@ components:
     LoteTipo:
       required: true
       description: |
-        En el alta, `ES_FINAL` y las medidas que se omiten se guardan como `false`.
-        En el reemplazo, las que se omiten conservan su valor.
+        En el alta, `ES_FINAL` omitido se guarda como `false`.
+        En el reemplazo, `ES_FINAL` omitido conserva su valor.
       content:
         application/json:
           schema:
@@ -337,9 +337,6 @@ components:
             NOMBRE: Tambo
             ACTIVO: true
             ES_FINAL: true
-            MIDE_UNIDAD: false
-            MIDE_LITRO: true
-            MIDE_KILO: true
     Catalogo:
       required: true
       content:
@@ -437,16 +434,18 @@ components:
                 error: record_in_use
     ErrorLoteTipo:
       description: |
-        El cuerpo no es válido o la combinación de `ES_FINAL` y medidas no cumple la regla del catálogo.
-        `invalid_tipo_lote` también responde cuando el cambio deja lotes o productos inconsistentes.
+        El cuerpo no es válido o el cambio de `ES_FINAL` deja el tipo inconsistente
+        con sus lotes, productos o unidades de medida.
+        `invalid_es_final` cuando `ES_FINAL` no es booleano.
+        `invalid_tipo_lote` cuando la base rechaza el cambio.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
           examples:
-            medida:
+            final:
               value:
-                error: invalid_mide_litro
+                error: invalid_es_final
             tipo:
               value:
                 error: invalid_tipo_lote
@@ -509,7 +508,7 @@ components:
             Ese registro se puede modificar y no se puede eliminar.
     LoteTipo:
       type: object
-      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL, MIDE_UNIDAD, MIDE_LITRO, MIDE_KILO]
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
       properties:
         ID:
           type: integer
@@ -531,16 +530,7 @@ components:
           type: boolean
           description: |
             `true` en caja y tambo, que contienen productos.
-            `false` en tarima, que contiene lotes finales y se embarca en la unidad.
-        MIDE_UNIDAD:
-          type: boolean
-          description: La caja mide productos por unidad.
-        MIDE_LITRO:
-          type: boolean
-          description: El tambo puede medir litros.
-        MIDE_KILO:
-          type: boolean
-          description: El tambo puede medir kilos.
+            `false` en tarima, que contiene lotes finales.
     LoteTipoEntrada:
       type: object
       required: [CODIGO, NOMBRE]
@@ -557,19 +547,9 @@ components:
         ES_FINAL:
           type: boolean
           default: false
-        MIDE_UNIDAD:
-          type: boolean
-          default: false
-        MIDE_LITRO:
-          type: boolean
-          default: false
-        MIDE_KILO:
-          type: boolean
-          default: false
       description: |
-        Una categoría final requiere al menos una medida.
-        Una categoría que no es final deja las tres medidas en `false`.
         `ES_SEMILLA` se ignora.
+        Las unidades de medida de un tipo viven en `LOTES_TIPOS_UNIDADES`, no en este cuerpo.
     CatalogoEntrada:
       type: object
       required: [CODIGO, NOMBRE]

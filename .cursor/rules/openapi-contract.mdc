@@ -1,12 +1,22 @@
 ---
-description: OpenAPI es el contrato entre los endpoints y el modelo de base de datos
+description: Cada cambio de endpoint actualiza openapi.yaml en el mismo cambio
 alwaysApply: true
 ---
 
 # Contrato OpenAPI
 
-`openapi.yaml` es la especificación de cómo los endpoints interactúan con el modelo de PostgreSQL. Cualquier cambio en esa interacción actualiza el archivo en el mismo cambio.
+Cada modificación de un endpoint actualiza `openapi.yaml` en el mismo cambio. La especificación describe rutas, métodos, parámetros, cuerpos, códigos de estado, campos devueltos y errores.
 
-Eso incluye rutas, métodos, parámetros, cuerpos, códigos de estado, campos devueltos y errores. Si una columna, una restricción o una regla de semilla cambia lo que el endpoint acepta o responde, la especificación cambia con el código.
+Si una columna, una restricción o una regla de semilla cambia lo que el endpoint acepta o responde, la especificación cambia con el código.
 
 No documentes un comportamiento que la API no tenga. No cambies un endpoint y dejes `openapi.yaml` como estaba.
+
+```js
+// Incorrecto: el endpoint ya no devuelve MIDE_UNIDAD y la spec sigue exigiéndolo
+required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL, MIDE_UNIDAD]
+```
+
+```yaml
+# Correcto: el mismo cambio quita el campo del código y de la spec
+required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
+```
