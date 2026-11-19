@@ -11,8 +11,8 @@ info:
     El servicio es agnóstico y otros sistemas lo consumen por HTTP.
 
     Esta versión publica el estado del servicio, el CRUD de los catálogos
-    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS` y `LOTES_TIPOS`, y el CRUD de
-    `UNIDADES_TRANSPORTE`.
+    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS` y `UNIDADES`, el CRUD de
+    `LOTES_TIPOS_UNIDADES` y el CRUD de `UNIDADES_TRANSPORTE`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -38,6 +38,16 @@ tags:
     description: |
       Catálogo `LOTES_TIPOS`. Caja y tambo son categorías finales y contienen productos.
       La tarima no es final y contiene esas categorías.
+  - name: Unidades de medida
+    description: |
+      Catálogo `UNIDADES`.
+      `ENTERA` indica que la cantidad del producto debe ser un número entero.
+      Unidad, litro y kilo nacen como semilla.
+  - name: Medidas de tipos de lote
+    description: |
+      Relación `LOTES_TIPOS_UNIDADES`.
+      Indica en qué unidades de medida puede contar productos un tipo de lote final.
+      La caja nace ligada a la unidad. El tambo nace ligado al litro y al kilo.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -326,6 +336,192 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /lotes-tipos-unidades:
+    get:
+      tags: [Medidas de tipos de lote]
+      operationId: listLotesTiposUnidades
+      summary: Lista las unidades permitidas por tipo de lote
+      responses:
+        '200':
+          description: Relaciones ordenadas por `ID`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteTipoUnidadLista'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Medidas de tipos de lote]
+      operationId: createLoteTipoUnidad
+      summary: Relaciona un tipo de lote con una unidad de medida
+      requestBody:
+        $ref: '#/components/requestBodies/LoteTipoUnidad'
+      responses:
+        '201':
+          description: Relación creada. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteTipoUnidad'
+        '400':
+          $ref: '#/components/responses/ErrorRelacionLote'
+        '409':
+          $ref: '#/components/responses/RelacionDuplicada'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-tipos-unidades/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Medidas de tipos de lote]
+      operationId: getLoteTipoUnidad
+      summary: Obtiene una relación entre tipo de lote y unidad
+      responses:
+        '200':
+          description: Relación.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteTipoUnidad'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Medidas de tipos de lote]
+      operationId: updateLoteTipoUnidad
+      summary: Reemplaza una relación entre tipo de lote y unidad
+      description: |
+        Reemplaza `ID_TIPO` e `ID_UNIDAD`. `ES_SEMILLA` no cambia.
+        El tipo tiene que ser final.
+        No se puede dejar un par que todavía mide productos de ese tipo.
+      requestBody:
+        $ref: '#/components/requestBodies/LoteTipoUnidad'
+      responses:
+        '200':
+          description: Relación actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteTipoUnidad'
+        '400':
+          $ref: '#/components/responses/ErrorRelacionLote'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/RelacionEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Medidas de tipos de lote]
+      operationId: deleteLoteTipoUnidad
+      summary: Elimina una relación entre tipo de lote y unidad
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-medida:
+    get:
+      tags: [Unidades de medida]
+      operationId: listUnidadesMedida
+      summary: Lista las unidades de medida
+      responses:
+        '200':
+          description: Catálogo ordenado por `ID`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadMedidaLista'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Unidades de medida]
+      operationId: createUnidadMedida
+      summary: Crea una unidad de medida
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadMedida'
+      responses:
+        '201':
+          description: Unidad de medida creada. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadMedida'
+        '400':
+          $ref: '#/components/responses/ErrorUnidadMedida'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-medida/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Unidades de medida]
+      operationId: getUnidadMedida
+      summary: Obtiene una unidad de medida
+      responses:
+        '200':
+          description: Unidad de medida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadMedida'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Unidades de medida]
+      operationId: updateUnidadMedida
+      summary: Reemplaza una unidad de medida
+      description: |
+        Reemplaza `CODIGO` y `NOMBRE`. Si `ACTIVO` no viene, se guarda `true`.
+        Si `ENTERA` no viene, se conserva el valor actual.
+        No se puede marcar `ENTERA` cuando ya hay productos con cantidad fraccionaria en esa unidad.
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadMedida'
+      responses:
+        '200':
+          description: Unidad de medida actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadMedida'
+        '400':
+          $ref: '#/components/responses/ErrorUnidadMedida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Unidades de medida]
+      operationId: deleteUnidadMedida
+      summary: Elimina una unidad de medida
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /unidades-transporte:
     get:
       tags: [Unidades de transporte]
@@ -444,6 +640,31 @@ components:
             NOMBRE: Tambo
             ACTIVO: true
             ES_FINAL: true
+    UnidadMedida:
+      required: true
+      description: |
+        En el alta, `ENTERA` omitido se guarda como `false`.
+        En el reemplazo, `ENTERA` omitido conserva su valor.
+        `ES_SEMILLA` se ignora.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnidadMedidaEntrada'
+          example:
+            CODIGO: gramo
+            NOMBRE: Gramo
+            ACTIVO: true
+            ENTERA: false
+    LoteTipoUnidad:
+      required: true
+      description: '`ES_SEMILLA` se ignora.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteTipoUnidadEntrada'
+          example:
+            ID_TIPO: 1
+            ID_UNIDAD: 1
     Catalogo:
       required: true
       content:
@@ -617,6 +838,80 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_tipo_lote
+    ErrorRelacionLote:
+      description: |
+        El cuerpo no es válido, el tipo o la unidad no existen, o el tipo no es final.
+        `error.error` puede ser `invalid_body`, `invalid_id_tipo`, `invalid_id_unidad` o `invalid_tipo_lote`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            tipo:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_tipo_lote
+            unidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_unidad
+    RelacionDuplicada:
+      description: Ese tipo de lote ya tiene relacionada esa unidad de medida.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: duplicate_relacion
+    RelacionEnUso:
+      description: |
+        `duplicate_relacion` cuando el tipo ya tiene esa unidad.
+        `record_in_use` cuando el par que se reemplaza todavía mide productos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            duplicada:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: duplicate_relacion
+            en_uso:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: record_in_use
+    ErrorUnidadMedida:
+      description: |
+        El cuerpo no es válido o el cambio de `ENTERA` deja cantidades fraccionarias en productos de esa unidad.
+        `error.error` puede ser `invalid_body`, `invalid_codigo`, `invalid_nombre`, `invalid_activo` o `invalid_entera`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            entera:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_entera
+            codigo:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_codigo
     ErrorUnidad:
       description: |
         El cuerpo no es válido o el tipo, el estatus o un límite de la unidad no se cumplen.
@@ -730,6 +1025,38 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/LoteTipo'
+    RespuestaLoteTipoUnidad:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoteTipoUnidad'
+    RespuestaLoteTipoUnidadLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoteTipoUnidad'
+    RespuestaUnidadMedida:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UnidadMedida'
+    RespuestaUnidadMedidaLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnidadMedida'
     RespuestaLoteTipoLista:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -821,6 +1148,64 @@ components:
           description: |
             `true` si el registro nació en `init.sql` o `seed.sql`.
             Ese registro se puede modificar y no se puede eliminar.
+    UnidadMedida:
+      type: object
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ENTERA]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: Unidad, litro y kilo nacen como semilla. Se pueden modificar y no se eliminan.
+        ENTERA:
+          type: boolean
+          description: |
+            `true` cuando la cantidad del producto debe ser entera, como en la unidad.
+            `false` en litro y kilo.
+    LoteTipoUnidad:
+      type: object
+      required: [ID, ID_TIPO, ID_UNIDAD, ES_SEMILLA]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a un `LOTES_TIPOS` final.
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+          description: Referencia a `UNIDADES`.
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: |
+            `true` en las relaciones que nacen con caja y tambo.
+            Se pueden modificar y no se eliminan.
+    LoteTipoUnidadEntrada:
+      type: object
+      required: [ID_TIPO, ID_UNIDAD]
+      properties:
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+      description: '`ES_SEMILLA` se ignora. El tipo de lote tiene que ser final.'
     LoteTipo:
       type: object
       required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
@@ -865,6 +1250,27 @@ components:
       description: |
         `ES_SEMILLA` se ignora.
         Las unidades de medida de un tipo viven en `LOTES_TIPOS_UNIDADES`, no en este cuerpo.
+    UnidadMedidaEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios. El valor resultante debe ser único.
+        NOMBRE:
+          type: string
+          minLength: 1
+          description: Se recortan los espacios.
+        ACTIVO:
+          type: boolean
+          default: true
+          description: Si se omite, el servicio guarda `true`.
+        ENTERA:
+          type: boolean
+          default: false
+          description: En el alta, si se omite, el servicio guarda `false`. En el reemplazo, si se omite, se conserva.
+      description: '`ES_SEMILLA` se ignora.'
     CatalogoEntrada:
       type: object
       required: [CODIGO, NOMBRE]

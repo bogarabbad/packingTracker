@@ -3,18 +3,23 @@ const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 
-const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS']);
+const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS', 'UNIDADES']);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
+const EXTRA = {
+  LOTES_TIPOS: { column: 'ES_FINAL', invalid: 'invalid_es_final', check: 'invalid_tipo_lote' },
+  UNIDADES: { column: 'ENTERA', invalid: 'invalid_entera', check: 'invalid_entera' },
+};
 
 function fieldsFor(table) {
-  if (table !== 'LOTES_TIPOS') {
+  const extra = EXTRA[table];
+  if (!extra) {
     return FIELDS;
   }
 
-  return `${FIELDS}, "ES_FINAL"`;
+  return `${FIELDS}, "${extra.column}"`;
 }
 
-function mapRow(row) {
+function mapRow(row, extra) {
   const mapped = {
     ID: Number(row.ID),
     CODIGO: row.CODIGO,
@@ -23,8 +28,8 @@ function mapRow(row) {
     ES_SEMILLA: row.ES_SEMILLA,
   };
 
-  if (Object.prototype.hasOwnProperty.call(row, 'ES_FINAL')) {
-    mapped.ES_FINAL = row.ES_FINAL;
+  if (extra && Object.prototype.hasOwnProperty.call(row, extra.column)) {
+    mapped[extra.column] = row[extra.column];
   }
 
   return mapped;
@@ -58,7 +63,7 @@ function parseFlag(value, error, fallback) {
   return value;
 }
 
-function parseBody(body, { loteTipo = false, keepFinal = false } = {}) {
+function parseBody(body, extra, keepExtra) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
   }
@@ -76,14 +81,18 @@ function parseBody(body, { loteTipo = false, keepFinal = false } = {}) {
     record.ACTIVO = body.ACTIVO;
   }
 
-  if (loteTipo) {
-    record.ES_FINAL = parseFlag(body.ES_FINAL, 'invalid_es_final', keepFinal ? undefined : false);
+  if (extra) {
+    record[extra.column] = parseFlag(
+      body[extra.column],
+      extra.invalid,
+      keepExtra ? undefined : false,
+    );
   }
 
   return record;
 }
 
-function translate(err) {
+function translate(err, extra) {
   if (err.publicError) {
     throw err;
   }
@@ -97,7 +106,7 @@ function translate(err) {
   }
 
   if (err.code === '23514') {
-    throw httpError(400, 'invalid_tipo_lote');
+    throw httpError(400, extra ? extra.check : 'invalid_tipo_lote');
   }
 
   throw err;
@@ -108,11 +117,11 @@ function createCatalogRouter(table) {
     throw new Error(`Catalogo no permitido: ${table}`);
   }
 
-  const loteTipo = table === 'LOTES_TIPOS';
+  const extra = EXTRA[table] || null;
   const fields = fieldsFor(table);
   const columns = ['CODIGO', 'NOMBRE', 'ACTIVO'];
-  if (loteTipo) {
-    columns.push('ES_FINAL');
+  if (extra) {
+    columns.push(extra.column);
   }
 
   const router = express.Router();
@@ -120,9 +129,9 @@ function createCatalogRouter(table) {
   router.get('/', async (req, res) => {
     try {
       const result = await pool.query(`SELECT ${fields} FROM "${table}" ORDER BY "ID"`);
-      sendData(res, 200, result.rows.map(mapRow));
+      sendData(res, 200, result.rows.map((row) => mapRow(row, extra)));
     } catch (err) {
-      translate(err);
+      translate(err, extra);
     }
   });
 
@@ -137,14 +146,14 @@ function createCatalogRouter(table) {
       if (!row) {
         throw httpError(404, 'not_found');
       }
-      sendData(res, 200, mapRow(row));
+      sendData(res, 200, mapRow(row, extra));
     } catch (err) {
-      translate(err);
+      translate(err, extra);
     }
   });
 
   router.post('/', async (req, res) => {
-    const record = parseBody(req.body, { loteTipo });
+    const record = parseBody(req.body, extra);
     const quoted = columns.map((name) => `"${name}"`).join(', ');
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
     try {
@@ -154,26 +163,26 @@ function createCatalogRouter(table) {
          RETURNING ${fields}`,
         columns.map((name) => record[name]),
       );
-      sendData(res, 201, mapRow(result.rows[0]));
+      sendData(res, 201, mapRow(result.rows[0], extra));
     } catch (err) {
-      translate(err);
+      translate(err, extra);
     }
   });
 
   router.put('/:id', async (req, res) => {
     const id = parseId(req.params.id);
-    const record = parseBody(req.body, { loteTipo, keepFinal: true });
+    const record = parseBody(req.body, extra, true);
     try {
-      if (loteTipo && record.ES_FINAL === undefined) {
+      if (extra && record[extra.column] === undefined) {
         const current = await pool.query(
-          `SELECT "ES_FINAL" FROM "${table}" WHERE "ID" = $1`,
+          `SELECT "${extra.column}" FROM "${table}" WHERE "ID" = $1`,
           [id],
         );
         const row = current.rows[0];
         if (!row) {
           throw httpError(404, 'not_found');
         }
-        record.ES_FINAL = row.ES_FINAL;
+        record[extra.column] = row[extra.column];
       }
 
       const assignments = columns.map((name, index) => `"${name}" = $${index + 1}`).join(', ');
@@ -188,9 +197,9 @@ function createCatalogRouter(table) {
       if (!row) {
         throw httpError(404, 'not_found');
       }
-      sendData(res, 200, mapRow(row));
+      sendData(res, 200, mapRow(row, extra));
     } catch (err) {
-      translate(err);
+      translate(err, extra);
     }
   });
 
@@ -212,7 +221,7 @@ function createCatalogRouter(table) {
       await pool.query(`DELETE FROM "${table}" WHERE "ID" = $1`, [id]);
       sendData(res, 200, null);
     } catch (err) {
-      translate(err);
+      translate(err, extra);
     }
   });
 
