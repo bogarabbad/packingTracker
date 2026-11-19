@@ -4,7 +4,7 @@ const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
-const FIELDS = '"ID", "ID_TIPO", "ID_UNIDAD", "ES_SEMILLA"';
+const FIELDS = '"ID", "ID_TIPO", "ID_UNIDAD", "ES_SEMILLA", "CREADO_EN", "ACTUALIZADO_EN"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -39,6 +39,8 @@ function mapRow(row) {
     ID_TIPO: Number(row.ID_TIPO),
     ID_UNIDAD: Number(row.ID_UNIDAD),
     ES_SEMILLA: row.ES_SEMILLA,
+    CREADO_EN: row.CREADO_EN,
+    ACTUALIZADO_EN: row.ACTUALIZADO_EN,
   };
 }
 

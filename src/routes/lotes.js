@@ -4,7 +4,7 @@ const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
-const FIELDS = '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID"';
+const FIELDS = '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "CREADO_EN", "ACTUALIZADO_EN"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -54,6 +54,8 @@ function mapRow(row) {
     PADRE_ID: mapNumber(row.PADRE_ID),
     ID_UNIDAD: mapNumber(row.ID_UNIDAD),
     USUARIO_ID: Number(row.USUARIO_ID),
+    CREADO_EN: row.CREADO_EN,
+    ACTUALIZADO_EN: row.ACTUALIZADO_EN,
   };
 }
 

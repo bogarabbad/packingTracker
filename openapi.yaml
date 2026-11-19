@@ -20,6 +20,10 @@ info:
     Si la petición no envía `page` o `items`, el servicio usa `1` y `50`.
     `error` es `null` cuando la petición tiene éxito. En un fallo es un objeto con `error` y, si la ruta no existe, `path`.
 
+    Cada registro guarda `CREADO_EN` y `ACTUALIZADO_EN`.
+    El servicio escribe `CREADO_EN` al crear y mueve `ACTUALIZADO_EN` en cada modificación.
+    El cliente no puede cambiar esas fechas.
+
     Una ruta que no existe responde `404`. El código queda en `error.error` como `not_found` y la ruta en `error.path`.
     Esta versión no exige autenticación.
 security: []
@@ -798,7 +802,7 @@ components:
       description: |
         En el alta, `ENTERA` omitido se guarda como `false`.
         En el reemplazo, `ENTERA` omitido conserva su valor.
-        `ES_SEMILLA` se ignora.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
       content:
         application/json:
           schema:
@@ -810,7 +814,7 @@ components:
             ENTERA: false
     LoteTipoUnidad:
       required: true
-      description: '`ES_SEMILLA` se ignora.'
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
       content:
         application/json:
           schema:
@@ -1412,7 +1416,7 @@ components:
           enum: [ok, error]
     Catalogo:
       type: object
-      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA]
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1432,9 +1436,19 @@ components:
           description: |
             `true` si el registro nació en `init.sql` o `seed.sql`.
             Ese registro se puede modificar y no se puede eliminar.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     UnidadMedida:
       type: object
-      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ENTERA]
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ENTERA, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1457,9 +1471,19 @@ components:
           description: |
             `true` cuando la cantidad del producto debe ser entera, como en la unidad.
             `false` en litro y kilo.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     LoteTipoUnidad:
       type: object
-      required: [ID, ID_TIPO, ID_UNIDAD, ES_SEMILLA]
+      required: [ID, ID_TIPO, ID_UNIDAD, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1479,6 +1503,16 @@ components:
           description: |
             `true` en las relaciones que nacen con caja y tambo.
             Se pueden modificar y no se eliminan.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     LoteTipoUnidadEntrada:
       type: object
       required: [ID_TIPO, ID_UNIDAD]
@@ -1489,10 +1523,12 @@ components:
         ID_UNIDAD:
           type: integer
           minimum: 1
-      description: '`ES_SEMILLA` se ignora. El tipo de lote tiene que ser final.'
+      description: |
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+        El tipo de lote tiene que ser final.
     Lote:
       type: object
-      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID]
+      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1516,6 +1552,16 @@ components:
           type: integer
           minimum: 1
           description: Usuario externo que registra el lote. No referencia una tabla de esta base.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     LoteEntrada:
       type: object
       required: [ID_TIPO, USUARIO_ID]
@@ -1538,9 +1584,10 @@ components:
       description: |
         En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
         `USUARIO_ID` es obligatorio.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object
-      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1563,6 +1610,16 @@ components:
           description: |
             `true` en caja y tambo, que contienen productos.
             `false` en tarima, que contiene lotes finales.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     LoteTipoEntrada:
       type: object
       required: [CODIGO, NOMBRE]
@@ -1580,7 +1637,7 @@ components:
           type: boolean
           default: false
       description: |
-        `ES_SEMILLA` se ignora.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
         Las unidades de medida de un tipo viven en `LOTES_TIPOS_UNIDADES`, no en este cuerpo.
     UnidadMedidaEntrada:
       type: object
@@ -1602,7 +1659,7 @@ components:
           type: boolean
           default: false
           description: En el alta, si se omite, el servicio guarda `false`. En el reemplazo, si se omite, se conserva.
-      description: '`ES_SEMILLA` se ignora.'
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
     CatalogoEntrada:
       type: object
       required: [CODIGO, NOMBRE]
@@ -1619,7 +1676,9 @@ components:
           type: boolean
           default: true
           description: Si se omite, el servicio guarda `true`.
-      description: Los campos ajenos a este esquema se ignoran.
+      description: |
+        Los campos ajenos a este esquema se ignoran.
+        `CREADO_EN` y `ACTUALIZADO_EN` los asigna el servicio.
     UnidadTransporte:
       type: object
       required:
@@ -1759,7 +1818,7 @@ components:
           default: true
           description: Si se omite, el servicio guarda `true`.
       description: |
-        `ES_SEMILLA` se ignora.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
         En el reemplazo, cada campo opcional omitido se guarda como `null`.
     Error:
       type: object

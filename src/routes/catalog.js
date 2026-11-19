@@ -13,11 +13,8 @@ const EXTRA = {
 
 function fieldsFor(table) {
   const extra = EXTRA[table];
-  if (!extra) {
-    return FIELDS;
-  }
-
-  return `${FIELDS}, "${extra.column}"`;
+  const columns = extra ? `${FIELDS}, "${extra.column}"` : FIELDS;
+  return `${columns}, "CREADO_EN", "ACTUALIZADO_EN"`;
 }
 
 function mapRow(row, extra) {
@@ -32,6 +29,9 @@ function mapRow(row, extra) {
   if (extra && Object.prototype.hasOwnProperty.call(row, extra.column)) {
     mapped[extra.column] = row[extra.column];
   }
+
+  mapped.CREADO_EN = row.CREADO_EN;
+  mapped.ACTUALIZADO_EN = row.ACTUALIZADO_EN;
 
   return mapped;
 }
