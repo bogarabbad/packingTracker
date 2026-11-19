@@ -4,7 +4,7 @@ const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
-const FIELDS = '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD"';
+const FIELDS = '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -39,6 +39,7 @@ function parseBody(body) {
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
     PADRE_ID: optionalInteger(body.PADRE_ID, 'invalid_padre_id'),
     ID_UNIDAD: optionalInteger(body.ID_UNIDAD, 'invalid_id_unidad'),
+    USUARIO_ID: requiredInteger(body.USUARIO_ID, 'invalid_usuario_id'),
   };
 }
 
@@ -52,6 +53,7 @@ function mapRow(row) {
     ID_TIPO: Number(row.ID_TIPO),
     PADRE_ID: mapNumber(row.PADRE_ID),
     ID_UNIDAD: mapNumber(row.ID_UNIDAD),
+    USUARIO_ID: Number(row.USUARIO_ID),
   };
 }
 
@@ -73,6 +75,9 @@ function translate(err) {
   if (err.code === '23514') {
     if (err.constraint === 'LOTES_PADRE_ID_CHK') {
       throw httpError(400, 'invalid_padre_id');
+    }
+    if (err.constraint === 'LOTES_USUARIO_ID_CHK') {
+      throw httpError(400, 'invalid_usuario_id');
     }
 
     const message = typeof err.message === 'string' ? err.message : '';
@@ -134,10 +139,10 @@ router.post('/', async (req, res) => {
   const record = parseBody(req.body);
   try {
     const result = await pool.query(
-      `INSERT INTO "LOTES" ("ID_TIPO", "PADRE_ID", "ID_UNIDAD")
-       VALUES ($1, $2, $3)
+      `INSERT INTO "LOTES" ("ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID")
+       VALUES ($1, $2, $3, $4)
        RETURNING ${FIELDS}`,
-      [record.ID_TIPO, record.PADRE_ID, record.ID_UNIDAD],
+      [record.ID_TIPO, record.PADRE_ID, record.ID_UNIDAD, record.USUARIO_ID],
     );
     sendData(res, 201, mapRow(result.rows[0]));
   } catch (err) {
@@ -153,10 +158,11 @@ router.put('/:id', async (req, res) => {
       `UPDATE "LOTES"
        SET "ID_TIPO" = $1,
            "PADRE_ID" = $2,
-           "ID_UNIDAD" = $3
-       WHERE "ID" = $4
+           "ID_UNIDAD" = $3,
+           "USUARIO_ID" = $4
+       WHERE "ID" = $5
        RETURNING ${FIELDS}`,
-      [record.ID_TIPO, record.PADRE_ID, record.ID_UNIDAD, id],
+      [record.ID_TIPO, record.PADRE_ID, record.ID_UNIDAD, record.USUARIO_ID, id],
     );
     const row = result.rows[0];
     if (!row) {

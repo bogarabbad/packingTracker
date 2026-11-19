@@ -54,6 +54,7 @@ tags:
       Registro `LOTES`.
       Una caja o un tambo puede ir dentro de una tarima.
       Solo la tarima puede apuntar a la unidad de transporte.
+      `USUARIO_ID` es el usuario externo que registra el lote. No tiene llave foránea.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -516,7 +517,7 @@ paths:
       operationId: updateLote
       summary: Reemplaza un lote
       description: |
-        Reemplaza `ID_TIPO`, `PADRE_ID` e `ID_UNIDAD`.
+        Reemplaza `ID_TIPO`, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID`.
         Si `PADRE_ID` o `ID_UNIDAD` no vienen, se guardan como `null`.
         Una categoría final no lleva unidad de transporte y solo puede colgar de una categoría que no es final.
         Una categoría que no es final no tiene padre.
@@ -829,6 +830,7 @@ components:
             ID_TIPO: 1
             PADRE_ID: null
             ID_UNIDAD: null
+            USUARIO_ID: 10
     Catalogo:
       required: true
       content:
@@ -1027,7 +1029,7 @@ components:
       description: |
         El cuerpo no cumple la jerarquía del lote.
         `error.error` puede ser `invalid_body`, `invalid_id_tipo`, `invalid_padre_id`,
-        `invalid_id_unidad`, `invalid_tipo_lote` o `invalid_lote`.
+        `invalid_id_unidad`, `invalid_usuario_id`, `invalid_tipo_lote` o `invalid_lote`.
         `invalid_id_unidad` también responde cuando una categoría final trae unidad de transporte
         o cuando esa unidad no existe.
         `invalid_lote` responde cuando una categoría final intenta contener otro lote.
@@ -1048,6 +1050,12 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_id_unidad
+            usuario:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_usuario_id
     LoteEnUso:
       description: Otro lote lo tiene como padre o el lote está embarcado en una expedición.
       content:
@@ -1484,7 +1492,7 @@ components:
       description: '`ES_SEMILLA` se ignora. El tipo de lote tiene que ser final.'
     Lote:
       type: object
-      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD]
+      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID]
       properties:
         ID:
           type: integer
@@ -1504,9 +1512,13 @@ components:
           nullable: true
           minimum: 1
           description: Unidad de transporte. Solo la puede llevar una categoría que no es final.
+        USUARIO_ID:
+          type: integer
+          minimum: 1
+          description: Usuario externo que registra el lote. No referencia una tabla de esta base.
     LoteEntrada:
       type: object
-      required: [ID_TIPO]
+      required: [ID_TIPO, USUARIO_ID]
       properties:
         ID_TIPO:
           type: integer
@@ -1519,8 +1531,13 @@ components:
           type: integer
           nullable: true
           minimum: 1
+        USUARIO_ID:
+          type: integer
+          minimum: 1
+          description: Usuario externo que registra el lote. No referencia una tabla de esta base.
       description: |
         En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
+        `USUARIO_ID` es obligatorio.
     LoteTipo:
       type: object
       required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, ES_FINAL]
