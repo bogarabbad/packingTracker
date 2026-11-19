@@ -3,7 +3,7 @@ const { pool } = require('../db');
 const { httpError } = require('../httpError');
 
 const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS']);
-const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO"';
+const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
 
 function mapRow(row) {
   return {
@@ -11,6 +11,7 @@ function mapRow(row) {
     CODIGO: row.CODIGO,
     NOMBRE: row.NOMBRE,
     ACTIVO: row.ACTIVO,
+    ES_SEMILLA: row.ES_SEMILLA,
   };
 }
 
@@ -139,13 +140,19 @@ function createCatalogRouter(table) {
   router.delete('/:id', async (req, res) => {
     const id = parseId(req.params.id);
     try {
-      const result = await pool.query(
-        `DELETE FROM "${table}" WHERE "ID" = $1 RETURNING "ID"`,
+      const existing = await pool.query(
+        `SELECT "ES_SEMILLA" FROM "${table}" WHERE "ID" = $1`,
         [id],
       );
-      if (result.rowCount === 0) {
+      const row = existing.rows[0];
+      if (!row) {
         throw httpError(404, 'not_found');
       }
+      if (row.ES_SEMILLA) {
+        throw httpError(409, 'seed_not_deletable');
+      }
+
+      await pool.query(`DELETE FROM "${table}" WHERE "ID" = $1`, [id]);
       res.status(204).send();
     } catch (err) {
       translate(err);

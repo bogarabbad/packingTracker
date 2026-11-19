@@ -135,7 +135,7 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '409':
-          $ref: '#/components/responses/RegistroEnUso'
+          $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /unidades-tipos:
@@ -210,7 +210,7 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '409':
-          $ref: '#/components/responses/RegistroEnUso'
+          $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
 components:
@@ -304,14 +304,21 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: duplicate_codigo
-    RegistroEnUso:
-      description: Una unidad de transporte todavía referencia el registro.
+    ConflictoEliminacion:
+      description: |
+        `seed_not_deletable` cuando el registro es semilla: se puede modificar, no eliminar.
+        `record_in_use` cuando una unidad de transporte todavía lo referencia.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: record_in_use
+          examples:
+            semilla:
+              value:
+                error: seed_not_deletable
+            en_uso:
+              value:
+                error: record_in_use
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
@@ -349,7 +356,7 @@ components:
           enum: [ok, error]
     Catalogo:
       type: object
-      required: [ID, CODIGO, NOMBRE, ACTIVO]
+      required: [ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA]
       properties:
         ID:
           type: integer
@@ -363,6 +370,12 @@ components:
           minLength: 1
         ACTIVO:
           type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: |
+            `true` si el registro nació en `init.sql` o `seed.sql`.
+            Ese registro se puede modificar y no se puede eliminar.
     CatalogoEntrada:
       type: object
       required: [CODIGO, NOMBRE]

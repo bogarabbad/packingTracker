@@ -1,0 +1,14 @@
+---
+description: Los registros semilla se pueden modificar y no se pueden eliminar
+alwaysApply: true
+---
+
+# Registros semilla
+
+Las filas insertadas en `db/init.sql` y `db/seed.sql` son semilla. Se pueden modificar. No se pueden eliminar.
+
+Cada `INSERT` de esos archivos lleva `"ES_SEMILLA"` en `true`. Un registro creado por la API nace con `"ES_SEMILLA"` en `false` y sí se puede eliminar.
+
+`DELETE` debe rechazar un registro con `"ES_SEMILLA"` en `true` y responder `409` con `seed_not_deletable`. No borres esas filas de los scripts para “limpiar” el catálogo: el cambio es un `UPDATE`.
+
+El cliente no puede cambiar `"ES_SEMILLA"`.
