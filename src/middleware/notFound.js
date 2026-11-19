@@ -1,5 +1,7 @@
+const { sendError } = require('../respond');
+
 function notFound(req, res) {
-  res.status(404).json({
+  sendError(res, 404, {
     error: 'not_found',
     path: req.originalUrl,
   });

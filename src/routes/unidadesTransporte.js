@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
+const { sendData } = require('../respond');
 
 const FIELDS = [
   'ID',
@@ -174,7 +175,7 @@ router.get('/', async (req, res) => {
     const result = await pool.query(
       `SELECT ${FIELDS} FROM "UNIDADES_TRANSPORTE" ORDER BY "ID"`,
     );
-    res.json(result.rows.map(mapRow));
+    sendData(res, 200, result.rows.map(mapRow));
   } catch (err) {
     translate(err);
   }
@@ -191,7 +192,7 @@ router.get('/:id', async (req, res) => {
     if (!row) {
       throw httpError(404, 'not_found');
     }
-    res.json(mapRow(row));
+    sendData(res, 200, mapRow(row));
   } catch (err) {
     translate(err);
   }
@@ -223,7 +224,7 @@ router.post('/', async (req, res) => {
         record.ACTIVO,
       ],
     );
-    res.status(201).json(mapRow(result.rows[0]));
+    sendData(res, 201, mapRow(result.rows[0]));
   } catch (err) {
     translate(err);
   }
@@ -270,7 +271,7 @@ router.put('/:id', async (req, res) => {
     if (!row) {
       throw httpError(404, 'not_found');
     }
-    res.json(mapRow(row));
+    sendData(res, 200, mapRow(row));
   } catch (err) {
     translate(err);
   }
@@ -292,7 +293,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     await pool.query(`DELETE FROM "UNIDADES_TRANSPORTE" WHERE "ID" = $1`, [id]);
-    res.status(204).send();
+    sendData(res, 200, null);
   } catch (err) {
     if (err.code === '23503') {
       throw httpError(409, 'record_in_use');

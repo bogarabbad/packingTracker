@@ -24,16 +24,20 @@ Copia `.env.example` a `.env` y completa la conexión antes de levantar el conte
 
 ```json
 {
-  "status": "ok",
-  "service": "packing-tracker",
-  "checks": {
-    "api": { "status": "ok" },
-    "database": { "status": "ok" }
-  }
+  "data": {
+    "status": "ok",
+    "service": "packing-tracker",
+    "checks": {
+      "api": { "status": "ok" },
+      "database": { "status": "ok" }
+    }
+  },
+  "_metadata": {},
+  "error": null
 }
 ```
 
-Si la API responde pero PostgreSQL no acepta la conexión, el mismo endpoint responde `503` con `database.status` en `error`.
+Si la API responde pero PostgreSQL no acepta la conexión, el mismo endpoint responde `503` con `data.checks.database.status` en `error`.
 
 Para detenerlo:
 

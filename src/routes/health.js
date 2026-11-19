@@ -1,6 +1,7 @@
 const express = require('express');
 const config = require('../config');
 const { checkConnection } = require('../db');
+const { sendData } = require('../respond');
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get('/health', async (req, res) => {
 
   const healthy = checks.database.status === 'ok';
 
-  res.status(healthy ? 200 : 503).json({
+  sendData(res, healthy ? 200 : 503, {
     status: healthy ? 'ok' : 'degraded',
     service: config.service,
     checks,

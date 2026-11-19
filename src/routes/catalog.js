@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
+const { sendData } = require('../respond');
 
 const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS']);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
@@ -119,7 +120,7 @@ function createCatalogRouter(table) {
   router.get('/', async (req, res) => {
     try {
       const result = await pool.query(`SELECT ${fields} FROM "${table}" ORDER BY "ID"`);
-      res.json(result.rows.map(mapRow));
+      sendData(res, 200, result.rows.map(mapRow));
     } catch (err) {
       translate(err);
     }
@@ -136,7 +137,7 @@ function createCatalogRouter(table) {
       if (!row) {
         throw httpError(404, 'not_found');
       }
-      res.json(mapRow(row));
+      sendData(res, 200, mapRow(row));
     } catch (err) {
       translate(err);
     }
@@ -153,7 +154,7 @@ function createCatalogRouter(table) {
          RETURNING ${fields}`,
         columns.map((name) => record[name]),
       );
-      res.status(201).json(mapRow(result.rows[0]));
+      sendData(res, 201, mapRow(result.rows[0]));
     } catch (err) {
       translate(err);
     }
@@ -187,7 +188,7 @@ function createCatalogRouter(table) {
       if (!row) {
         throw httpError(404, 'not_found');
       }
-      res.json(mapRow(row));
+      sendData(res, 200, mapRow(row));
     } catch (err) {
       translate(err);
     }
@@ -209,7 +210,7 @@ function createCatalogRouter(table) {
       }
 
       await pool.query(`DELETE FROM "${table}" WHERE "ID" = $1`, [id]);
-      res.status(204).send();
+      sendData(res, 200, null);
     } catch (err) {
       translate(err);
     }

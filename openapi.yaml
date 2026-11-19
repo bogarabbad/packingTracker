@@ -14,7 +14,12 @@ info:
     `UNIDADES_ESTATUS`, `UNIDADES_TIPOS` y `LOTES_TIPOS`, y el CRUD de
     `UNIDADES_TRANSPORTE`.
 
-    Una ruta que no existe responde `404` con `error` en `not_found` y el campo `path`.
+    Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
+    `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
+    `_metadata` se devuelve vacío.
+    `error` es `null` cuando la petición tiene éxito. En un fallo es un objeto con `error` y, si la ruta no existe, `path`.
+
+    Una ruta que no existe responde `404`. El código queda en `error.error` como `not_found` y la ruta en `error.path`.
     Esta versión no exige autenticación.
 security: []
 servers:
@@ -49,29 +54,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Health'
+                $ref: '#/components/schemas/RespuestaHealth'
               example:
-                status: ok
-                service: packing-tracker
-                checks:
-                  api:
-                    status: ok
-                  database:
-                    status: ok
+                data:
+                  status: ok
+                  service: packing-tracker
+                  checks:
+                    api:
+                      status: ok
+                    database:
+                      status: ok
+                _metadata: {}
+                error: null
         '503':
           description: La API responde, pero PostgreSQL no acepta la conexión.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Health'
+                $ref: '#/components/schemas/RespuestaHealth'
               example:
-                status: degraded
-                service: packing-tracker
-                checks:
-                  api:
-                    status: ok
-                  database:
-                    status: error
+                data:
+                  status: degraded
+                  service: packing-tracker
+                  checks:
+                    api:
+                      status: ok
+                    database:
+                      status: error
+                _metadata: {}
+                error: null
   /unidades-estatus:
     get:
       tags: [Estatus de unidades]
@@ -137,7 +148,7 @@ paths:
       operationId: deleteUnidadEstatus
       summary: Elimina un estatus de unidad
       responses:
-        '204':
+        '200':
           $ref: '#/components/responses/Eliminado'
         '400':
           $ref: '#/components/responses/IdInvalido'
@@ -212,7 +223,7 @@ paths:
       operationId: deleteUnidadTipo
       summary: Elimina un tipo de unidad
       responses:
-        '204':
+        '200':
           $ref: '#/components/responses/Eliminado'
         '400':
           $ref: '#/components/responses/IdInvalido'
@@ -233,9 +244,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LoteTipo'
+                $ref: '#/components/schemas/RespuestaLoteTipoLista'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     post:
@@ -250,7 +259,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoteTipo'
+                $ref: '#/components/schemas/RespuestaLoteTipo'
         '400':
           $ref: '#/components/responses/ErrorLoteTipo'
         '409':
@@ -270,7 +279,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoteTipo'
+                $ref: '#/components/schemas/RespuestaLoteTipo'
         '400':
           $ref: '#/components/responses/IdInvalido'
         '404':
@@ -293,7 +302,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoteTipo'
+                $ref: '#/components/schemas/RespuestaLoteTipo'
         '400':
           $ref: '#/components/responses/ErrorLoteTipo'
         '404':
@@ -307,7 +316,7 @@ paths:
       operationId: deleteLoteTipo
       summary: Elimina un tipo de lote
       responses:
-        '204':
+        '200':
           $ref: '#/components/responses/Eliminado'
         '400':
           $ref: '#/components/responses/IdInvalido'
@@ -328,9 +337,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UnidadTransporte'
+                $ref: '#/components/schemas/RespuestaUnidadTransporteLista'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     post:
@@ -345,7 +352,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UnidadTransporte'
+                $ref: '#/components/schemas/RespuestaUnidadTransporte'
         '400':
           $ref: '#/components/responses/ErrorUnidad'
         '409':
@@ -365,7 +372,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UnidadTransporte'
+                $ref: '#/components/schemas/RespuestaUnidadTransporte'
         '400':
           $ref: '#/components/responses/IdInvalido'
         '404':
@@ -388,7 +395,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UnidadTransporte'
+                $ref: '#/components/schemas/RespuestaUnidadTransporte'
         '400':
           $ref: '#/components/responses/ErrorUnidad'
         '404':
@@ -402,7 +409,7 @@ paths:
       operationId: deleteUnidadTransporte
       summary: Elimina una unidad de transporte
       responses:
-        '204':
+        '200':
           $ref: '#/components/responses/Eliminado'
         '400':
           $ref: '#/components/responses/IdInvalido'
@@ -475,70 +482,97 @@ components:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              $ref: '#/components/schemas/Catalogo'
+            $ref: '#/components/schemas/RespuestaCatalogoLista'
     Catalogo:
       description: Registro del catálogo.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Catalogo'
+            $ref: '#/components/schemas/RespuestaCatalogo'
     CatalogoCreado:
       description: Registro creado. El `ID` lo asigna la base de datos.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Catalogo'
+            $ref: '#/components/schemas/RespuestaCatalogo'
     Eliminado:
-      description: Registro eliminado. La respuesta no tiene cuerpo.
+      description: Registro eliminado. `data` y `error` son `null`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaVacia'
+          example:
+            data: null
+            _metadata: {}
+            error: null
     IdInvalido:
       description: El identificador no es un entero positivo.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           example:
-            error: invalid_id
+            data: null
+            _metadata: {}
+            error:
+              error: invalid_id
     NoEncontrado:
       description: No existe un registro con ese identificador.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           example:
-            error: not_found
+            data: null
+            _metadata: {}
+            error:
+              error: not_found
     ErrorSolicitud:
       description: |
-        El cuerpo no es válido. `error` puede ser `invalid_body`, `invalid_codigo`,
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
         `invalid_nombre`, `invalid_activo` o `request_error` cuando el JSON no se puede leer.
         `CODIGO` y `NOMBRE` deben ser texto no vacío después de recortar espacios.
         `ACTIVO`, si se envía, debe ser booleano.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           examples:
             codigo:
               value:
-                error: invalid_codigo
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_codigo
             nombre:
               value:
-                error: invalid_nombre
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_nombre
             activo:
               value:
-                error: invalid_activo
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_activo
             cuerpo:
               value:
-                error: invalid_body
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_body
     CodigoDuplicado:
       description: Ya existe un registro con el mismo `CODIGO`.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           example:
-            error: duplicate_codigo
+            data: null
+            _metadata: {}
+            error:
+              error: duplicate_codigo
     ConflictoEliminacion:
       description: |
         `seed_not_deletable` cuando el registro es semilla: se puede modificar, no eliminar.
@@ -546,14 +580,20 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           examples:
             semilla:
               value:
-                error: seed_not_deletable
+                data: null
+                _metadata: {}
+                error:
+                  error: seed_not_deletable
             en_uso:
               value:
-                error: record_in_use
+                data: null
+                _metadata: {}
+                error:
+                  error: record_in_use
     ErrorLoteTipo:
       description: |
         El cuerpo no es válido o el cambio de `ES_FINAL` deja el tipo inconsistente
@@ -563,14 +603,20 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           examples:
             final:
               value:
-                error: invalid_es_final
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_es_final
             tipo:
               value:
-                error: invalid_tipo_lote
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_tipo_lote
     ErrorUnidad:
       description: |
         El cuerpo no es válido o el tipo, el estatus o un límite de la unidad no se cumplen.
@@ -580,42 +626,153 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           examples:
             placas:
               value:
-                error: invalid_placas
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_placas
             tipo:
               value:
-                error: invalid_id_tipo
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_tipo
             anio:
               value:
-                error: invalid_anio
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_anio
     UnidadDuplicada:
       description: |
         Ya existe otra unidad con el mismo valor.
-        `error` puede ser `duplicate_codigo`, `duplicate_placas`,
+        `error.error` puede ser `duplicate_codigo`, `duplicate_placas`,
         `duplicate_numero_economico` o `duplicate_numero_serie`.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           examples:
             codigo:
               value:
-                error: duplicate_codigo
+                data: null
+                _metadata: {}
+                error:
+                  error: duplicate_codigo
             placas:
               value:
-                error: duplicate_placas
+                data: null
+                _metadata: {}
+                error:
+                  error: duplicate_placas
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: '#/components/schemas/RespuestaError'
           example:
-            error: internal_error
+            data: null
+            _metadata: {}
+            error:
+              error: internal_error
   schemas:
+    Metadata:
+      type: object
+      additionalProperties: false
+      description: Reservado. La API lo devuelve vacío.
+    Sobre:
+      type: object
+      required: [data, _metadata, error]
+      properties:
+        data:
+          nullable: true
+          description: |
+            Objeto o lista con el resultado.
+            `null` cuando la respuesta es un error o una eliminación.
+        _metadata:
+          $ref: '#/components/schemas/Metadata'
+        error:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Error'
+          description: "`null` cuando la petición tiene éxito."
+    RespuestaHealth:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Health'
+    RespuestaCatalogo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Catalogo'
+    RespuestaCatalogoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Catalogo'
+    RespuestaLoteTipo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoteTipo'
+    RespuestaLoteTipoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoteTipo'
+    RespuestaUnidadTransporte:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UnidadTransporte'
+    RespuestaUnidadTransporteLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnidadTransporte'
+    RespuestaVacia:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              nullable: true
+            error:
+              nullable: true
+    RespuestaError:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              nullable: true
+            error:
+              $ref: '#/components/schemas/Error'
     Health:
       type: object
       required: [status, service, checks]

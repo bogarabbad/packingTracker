@@ -1,3 +1,5 @@
+const { sendError } = require('../respond');
+
 function errorHandler(err, req, res, next) {
   if (res.headersSent) {
     next(err);
@@ -10,7 +12,7 @@ function errorHandler(err, req, res, next) {
     console.error('request failed', err.code || err.message);
   }
 
-  res.status(status).json({
+  sendError(res, status, {
     error: err.publicError || (status >= 500 ? 'internal_error' : 'request_error'),
   });
 }
