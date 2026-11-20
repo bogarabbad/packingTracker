@@ -11,8 +11,9 @@ info:
     El servicio es agnóstico y otros sistemas lo consumen por HTTP.
 
     Esta versión publica el estado del servicio, el CRUD de los catálogos
-    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS` y `UNIDADES`, el CRUD de
-    `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES` y el CRUD de `UNIDADES_TRANSPORTE`.
+    `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS`, `UNIDADES` y `REFERENCIAS_TIPOS`,
+    el CRUD de `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES`, el CRUD de `LOTES_REFERENCIAS`
+    y el CRUD de `UNIDADES_TRANSPORTE`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -53,6 +54,16 @@ tags:
       Relación `LOTES_TIPOS_UNIDADES`.
       Indica en qué unidades de medida puede contar productos un tipo de lote final.
       La caja nace ligada a la unidad. El tambo nace ligado al litro y al kilo.
+  - name: Tipos de referencia
+    description: |
+      Catálogo `REFERENCIAS_TIPOS`.
+      Clasifica la referencia externa de un lote.
+      PACKING nace como semilla.
+  - name: Referencias de lote
+    description: |
+      Registro `LOTES_REFERENCIAS`.
+      Une un lote con una referencia externa y el tipo de esa referencia.
+      `USUARIO_ID` es opcional y no tiene llave foránea.
   - name: Lotes
     description: |
       Registro `LOTES`.
@@ -460,6 +471,178 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /referencias-tipos:
+    get:
+      tags: [Tipos de referencia]
+      operationId: listReferenciasTipos
+      summary: Lista los tipos de referencia
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogoLista'
+        '400':
+          $ref: '#/components/responses/PaginacionInvalida'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tipos de referencia]
+      operationId: createReferenciaTipo
+      summary: Crea un tipo de referencia
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '201':
+          $ref: '#/components/responses/CatalogoCreado'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /referencias-tipos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de referencia]
+      operationId: getReferenciaTipo
+      summary: Obtiene un tipo de referencia
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tipos de referencia]
+      operationId: updateReferenciaTipo
+      summary: Reemplaza un tipo de referencia
+      description: |
+        Reemplaza `CODIGO`, `NOMBRE` y `ACTIVO`. Si `ACTIVO` no viene en el cuerpo, se guarda `true`.
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tipos de referencia]
+      operationId: deleteReferenciaTipo
+      summary: Elimina un tipo de referencia
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-referencias:
+    get:
+      tags: [Referencias de lote]
+      operationId: listLotesReferencias
+      summary: Lista las referencias de lote
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          description: Referencias ordenadas por `ID`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteReferenciaLista'
+        '400':
+          $ref: '#/components/responses/PaginacionInvalida'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Referencias de lote]
+      operationId: createLoteReferencia
+      summary: Relaciona un lote con una referencia externa
+      requestBody:
+        $ref: '#/components/requestBodies/LoteReferencia'
+      responses:
+        '201':
+          description: Referencia creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteReferencia'
+        '400':
+          $ref: '#/components/responses/ErrorLoteReferencia'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-referencias/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Referencias de lote]
+      operationId: getLoteReferencia
+      summary: Obtiene una referencia de lote
+      responses:
+        '200':
+          description: Referencia de lote.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteReferencia'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Referencias de lote]
+      operationId: updateLoteReferencia
+      summary: Reemplaza una referencia de lote
+      description: |
+        Reemplaza `ID_LOTE`, `ID_TIPO`, `REFERENCIA` y `USUARIO_ID`.
+        Si `USUARIO_ID` no viene, se guarda como `null`.
+        `REFERENCIA` se recorta. El valor resultante no puede quedar vacío.
+      requestBody:
+        $ref: '#/components/requestBodies/LoteReferencia'
+      responses:
+        '200':
+          description: Referencia actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteReferencia'
+        '400':
+          $ref: '#/components/responses/ErrorLoteReferencia'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Referencias de lote]
+      operationId: deleteLoteReferencia
+      summary: Elimina una referencia de lote
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /lotes:
     get:
       tags: [Lotes]
@@ -545,7 +728,7 @@ paths:
       operationId: deleteLote
       summary: Elimina un lote
       description: |
-        También elimina los productos de ese lote.
+        También elimina los productos y las referencias de ese lote.
         Responde `409` si otro lote lo tiene como padre o si está embarcado en una expedición.
       responses:
         '200':
@@ -835,6 +1018,20 @@ components:
             PADRE_ID: null
             ID_UNIDAD: null
             USUARIO_ID: null
+    LoteReferencia:
+      required: true
+      description: |
+        `USUARIO_ID` se puede omitir. El servicio lo guarda como `null`.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteReferenciaEntrada'
+          example:
+            ID_LOTE: 1
+            ID_TIPO: 1
+            REFERENCIA: PL-100
+            USUARIO_ID: 10
     Catalogo:
       required: true
       content:
@@ -1029,6 +1226,28 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_tipo_lote
+    ErrorLoteReferencia:
+      description: |
+        El cuerpo no es válido, el lote o el tipo no existen, o la referencia queda vacía.
+        `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_id_tipo`,
+        `invalid_referencia` o `invalid_usuario_id`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            lote:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_lote
+            referencia:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_referencia
     ErrorLote:
       description: |
         El cuerpo no cumple la jerarquía del lote.
@@ -1294,6 +1513,24 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/Lote'
+    RespuestaLoteReferencia:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoteReferencia'
+    RespuestaLoteReferenciaLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoteReferencia'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaLoteLista:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -1586,6 +1823,61 @@ components:
           description: Usuario externo que registra el lote. No referencia una tabla de esta base.
       description: |
         En el reemplazo, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID` omitidos se guardan como `null`.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    LoteReferencia:
+      type: object
+      required: [ID, ID_LOTE, ID_TIPO, REFERENCIA, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_LOTE:
+          type: integer
+          minimum: 1
+          description: Referencia a `LOTES`.
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a `REFERENCIAS_TIPOS`.
+        REFERENCIA:
+          type: string
+          minLength: 1
+          description: Identificador externo. Se recortan los espacios.
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Usuario externo que registra la referencia. No referencia una tabla de esta base.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
+    LoteReferenciaEntrada:
+      type: object
+      required: [ID_LOTE, ID_TIPO, REFERENCIA]
+      properties:
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        REFERENCIA:
+          type: string
+          minLength: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+      description: |
+        En el reemplazo, `USUARIO_ID` omitido se guarda como `null`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object

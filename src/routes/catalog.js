@@ -4,7 +4,13 @@ const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
-const TABLES = new Set(['UNIDADES_ESTATUS', 'UNIDADES_TIPOS', 'LOTES_TIPOS', 'UNIDADES']);
+const TABLES = new Set([
+  'UNIDADES_ESTATUS',
+  'UNIDADES_TIPOS',
+  'LOTES_TIPOS',
+  'UNIDADES',
+  'REFERENCIAS_TIPOS',
+]);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
 const EXTRA = {
   LOTES_TIPOS: { column: 'ES_FINAL', invalid: 'invalid_es_final', check: 'invalid_tipo_lote' },
