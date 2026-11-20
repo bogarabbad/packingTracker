@@ -522,7 +522,7 @@ paths:
       summary: Reemplaza un lote
       description: |
         Reemplaza `ID_TIPO`, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID`.
-        Si `PADRE_ID` o `ID_UNIDAD` no vienen, se guardan como `null`.
+        Si `PADRE_ID`, `ID_UNIDAD` o `USUARIO_ID` no vienen, se guardan como `null`.
         Una categoría final no lleva unidad de transporte y solo puede colgar de una categoría que no es final.
         Una categoría que no es final no tiene padre.
       requestBody:
@@ -825,7 +825,7 @@ components:
     Lote:
       required: true
       description: |
-        `PADRE_ID` e `ID_UNIDAD` se pueden omitir. El servicio los guarda como `null`.
+        `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID` se pueden omitir. El servicio los guarda como `null`.
       content:
         application/json:
           schema:
@@ -834,7 +834,7 @@ components:
             ID_TIPO: 1
             PADRE_ID: null
             ID_UNIDAD: null
-            USUARIO_ID: 10
+            USUARIO_ID: null
     Catalogo:
       required: true
       content:
@@ -1529,6 +1529,7 @@ components:
     Lote:
       type: object
       required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
+
       properties:
         ID:
           type: integer
@@ -1550,6 +1551,7 @@ components:
           description: Unidad de transporte. Solo la puede llevar una categoría que no es final.
         USUARIO_ID:
           type: integer
+          nullable: true
           minimum: 1
           description: Usuario externo que registra el lote. No referencia una tabla de esta base.
         CREADO_EN:
@@ -1564,7 +1566,7 @@ components:
           description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
     LoteEntrada:
       type: object
-      required: [ID_TIPO, USUARIO_ID]
+      required: [ID_TIPO]
       properties:
         ID_TIPO:
           type: integer
@@ -1579,11 +1581,11 @@ components:
           minimum: 1
         USUARIO_ID:
           type: integer
+          nullable: true
           minimum: 1
           description: Usuario externo que registra el lote. No referencia una tabla de esta base.
       description: |
-        En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
-        `USUARIO_ID` es obligatorio.
+        En el reemplazo, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID` omitidos se guardan como `null`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object

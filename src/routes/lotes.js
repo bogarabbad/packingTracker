@@ -39,7 +39,7 @@ function parseBody(body) {
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
     PADRE_ID: optionalInteger(body.PADRE_ID, 'invalid_padre_id'),
     ID_UNIDAD: optionalInteger(body.ID_UNIDAD, 'invalid_id_unidad'),
-    USUARIO_ID: requiredInteger(body.USUARIO_ID, 'invalid_usuario_id'),
+    USUARIO_ID: optionalInteger(body.USUARIO_ID, 'invalid_usuario_id'),
   };
 }
 
@@ -53,7 +53,7 @@ function mapRow(row) {
     ID_TIPO: Number(row.ID_TIPO),
     PADRE_ID: mapNumber(row.PADRE_ID),
     ID_UNIDAD: mapNumber(row.ID_UNIDAD),
-    USUARIO_ID: Number(row.USUARIO_ID),
+    USUARIO_ID: mapNumber(row.USUARIO_ID),
     CREADO_EN: row.CREADO_EN,
     ACTUALIZADO_EN: row.ACTUALIZADO_EN,
   };
