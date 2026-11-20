@@ -63,13 +63,15 @@ tags:
     description: |
       Registro `LOTES_REFERENCIAS`.
       Une un lote con una referencia externa y el tipo de esa referencia.
-      `USUARIO_ID` es opcional y no tiene llave foránea.
+      `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+      El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
   - name: Lotes
     description: |
       Registro `LOTES`.
       Una caja o un tambo puede ir dentro de una tarima.
       Solo la tarima puede apuntar a la unidad de transporte.
-      `USUARIO_ID` es el usuario externo que registra el lote. No tiene llave foránea.
+      `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+      El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -612,8 +614,9 @@ paths:
       operationId: updateLoteReferencia
       summary: Reemplaza una referencia de lote
       description: |
-        Reemplaza `ID_LOTE`, `ID_TIPO`, `REFERENCIA`, `DESCRIPCION` y `USUARIO_ID`.
-        Si `DESCRIPCION` o `USUARIO_ID` no vienen, se guardan como `null`.
+        Reemplaza `ID_LOTE`, `ID_TIPO`, `REFERENCIA`, `DESCRIPCION`, `USUARIO_ID` e `ID_ORIGEN_USUARIO`.
+        Si `DESCRIPCION` no viene, se guarda como `null`.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
         `REFERENCIA` y `DESCRIPCION` se recortan. El valor resultante no puede quedar vacío.
       requestBody:
         $ref: '#/components/requestBodies/LoteReferencia'
@@ -704,8 +707,9 @@ paths:
       operationId: updateLote
       summary: Reemplaza un lote
       description: |
-        Reemplaza `ID_TIPO`, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID`.
-        Si `PADRE_ID`, `ID_UNIDAD` o `USUARIO_ID` no vienen, se guardan como `null`.
+        Reemplaza `ID_TIPO`, `PADRE_ID`, `ID_UNIDAD`, `USUARIO_ID` e `ID_ORIGEN_USUARIO`.
+        Si `PADRE_ID` o `ID_UNIDAD` no vienen, se guardan como `null`.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
         Una categoría final no lleva unidad de transporte y solo puede colgar de una categoría que no es final.
         Una categoría que no es final no tiene padre.
       requestBody:
@@ -1008,7 +1012,8 @@ components:
     Lote:
       required: true
       description: |
-        `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID` se pueden omitir. El servicio los guarda como `null`.
+        `PADRE_ID`, `ID_UNIDAD`, `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       content:
         application/json:
           schema:
@@ -1018,10 +1023,12 @@ components:
             PADRE_ID: null
             ID_UNIDAD: null
             USUARIO_ID: null
+            ID_ORIGEN_USUARIO: null
     LoteReferencia:
       required: true
       description: |
-        `DESCRIPCION` y `USUARIO_ID` se pueden omitir. El servicio los guarda como `null`.
+        `DESCRIPCION`, `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
       content:
         application/json:
@@ -1033,6 +1040,7 @@ components:
             REFERENCIA: PL-100
             DESCRIPCION: Packing list de salida
             USUARIO_ID: 10
+            ID_ORIGEN_USUARIO: 1
     Catalogo:
       required: true
       content:
@@ -1231,7 +1239,8 @@ components:
       description: |
         El cuerpo no es válido, el lote o el tipo no existen, o la referencia queda vacía.
         `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_id_tipo`,
-        `invalid_referencia`, `invalid_descripcion` o `invalid_usuario_id`.
+        `invalid_referencia`, `invalid_descripcion`, `invalid_usuario_id`,
+        `invalid_id_origen_usuario` o `invalid_usuario_origen`.
       content:
         application/json:
           schema:
@@ -1259,7 +1268,8 @@ components:
       description: |
         El cuerpo no cumple la jerarquía del lote.
         `error.error` puede ser `invalid_body`, `invalid_id_tipo`, `invalid_padre_id`,
-        `invalid_id_unidad`, `invalid_usuario_id`, `invalid_tipo_lote` o `invalid_lote`.
+        `invalid_id_unidad`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
+        `invalid_usuario_origen`, `invalid_tipo_lote` o `invalid_lote`.
         `invalid_id_unidad` también responde cuando una categoría final trae unidad de transporte
         o cuando esa unidad no existe.
         `invalid_lote` responde cuando una categoría final intenta contener otro lote.
@@ -1772,7 +1782,7 @@ components:
         El tipo de lote tiene que ser final.
     Lote:
       type: object
-      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
+      required: [ID, ID_TIPO, PADRE_ID, ID_UNIDAD, USUARIO_ID, ID_ORIGEN_USUARIO, CREADO_EN, ACTUALIZADO_EN]
 
       properties:
         ID:
@@ -1797,7 +1807,14 @@ components:
           type: integer
           nullable: true
           minimum: 1
-          description: Usuario externo que registra el lote. No referencia una tabla de esta base.
+          description: |
+            Identificador del usuario. Con origen `1` apunta a `USUARIOS`.
+            Con otro origen es una referencia externa.
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Procedencia de `USUARIO_ID`. El valor `1` es interno.
         CREADO_EN:
           type: string
           format: date-time
@@ -1827,13 +1844,26 @@ components:
           type: integer
           nullable: true
           minimum: 1
-          description: Usuario externo que registra el lote. No referencia una tabla de esta base.
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
       description: |
-        En el reemplazo, `PADRE_ID`, `ID_UNIDAD` y `USUARIO_ID` omitidos se guardan como `null`.
+        En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteReferencia:
       type: object
-      required: [ID, ID_LOTE, ID_TIPO, REFERENCIA, DESCRIPCION, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
+      required:
+        - ID
+        - ID_LOTE
+        - ID_TIPO
+        - REFERENCIA
+        - DESCRIPCION
+        - USUARIO_ID
+        - ID_ORIGEN_USUARIO
+        - CREADO_EN
+        - ACTUALIZADO_EN
       properties:
         ID:
           type: integer
@@ -1860,7 +1890,14 @@ components:
           type: integer
           nullable: true
           minimum: 1
-          description: Usuario externo que registra la referencia. No referencia una tabla de esta base.
+          description: |
+            Identificador del usuario. Con origen `1` apunta a `USUARIOS`.
+            Con otro origen es una referencia externa.
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Procedencia de `USUARIO_ID`. El valor `1` es interno.
         CREADO_EN:
           type: string
           format: date-time
@@ -1892,8 +1929,13 @@ components:
           type: integer
           nullable: true
           minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
       description: |
-        En el reemplazo, `DESCRIPCION` y `USUARIO_ID` omitidos se guardan como `null`.
+        En el reemplazo, `DESCRIPCION` omitida se guarda como `null`.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object

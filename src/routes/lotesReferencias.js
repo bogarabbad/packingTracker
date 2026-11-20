@@ -5,7 +5,7 @@ const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
 const FIELDS =
-  '"ID", "ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID", "CREADO_EN", "ACTUALIZADO_EN"';
+  '"ID", "ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID", "ID_ORIGEN_USUARIO", "CREADO_EN", "ACTUALIZADO_EN"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -52,12 +52,22 @@ function parseBody(body) {
     throw httpError(400, 'invalid_body');
   }
 
+  const usuarioId = optionalInteger(body.USUARIO_ID, 'invalid_usuario_id');
+  const idOrigenUsuario = optionalInteger(
+    body.ID_ORIGEN_USUARIO,
+    'invalid_id_origen_usuario',
+  );
+  if ((usuarioId === null) !== (idOrigenUsuario === null)) {
+    throw httpError(400, 'invalid_usuario_origen');
+  }
+
   return {
     ID_LOTE: requiredInteger(body.ID_LOTE, 'invalid_id_lote'),
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
     REFERENCIA: requiredText(body.REFERENCIA, 'invalid_referencia'),
     DESCRIPCION: optionalText(body.DESCRIPCION, 'invalid_descripcion'),
-    USUARIO_ID: optionalInteger(body.USUARIO_ID, 'invalid_usuario_id'),
+    USUARIO_ID: usuarioId,
+    ID_ORIGEN_USUARIO: idOrigenUsuario,
   };
 }
 
@@ -73,6 +83,7 @@ function mapRow(row) {
     REFERENCIA: row.REFERENCIA,
     DESCRIPCION: row.DESCRIPCION,
     USUARIO_ID: mapNumber(row.USUARIO_ID),
+    ID_ORIGEN_USUARIO: mapNumber(row.ID_ORIGEN_USUARIO),
     CREADO_EN: row.CREADO_EN,
     ACTUALIZADO_EN: row.ACTUALIZADO_EN,
   };
@@ -87,6 +98,13 @@ function translate(err) {
     if (err.constraint === 'LOTES_REFERENCIAS_ID_LOTE_FK') {
       throw httpError(400, 'invalid_id_lote');
     }
+    if (err.constraint === 'LOTES_REFERENCIAS_ID_ORIGEN_USUARIO_FK') {
+      throw httpError(400, 'invalid_id_origen_usuario');
+    }
+    const message = typeof err.message === 'string' ? err.message : '';
+    if (message.includes('usuario interno')) {
+      throw httpError(400, 'invalid_usuario_id');
+    }
     throw httpError(400, 'invalid_id_tipo');
   }
 
@@ -94,8 +112,15 @@ function translate(err) {
     if (err.constraint === 'LOTES_REFERENCIAS_USUARIO_ID_CHK') {
       throw httpError(400, 'invalid_usuario_id');
     }
+    if (err.constraint === 'LOTES_REFERENCIAS_USUARIO_ORIGEN_CHK') {
+      throw httpError(400, 'invalid_usuario_origen');
+    }
     if (err.constraint === 'LOTES_REFERENCIAS_DESCRIPCION_CHK') {
       throw httpError(400, 'invalid_descripcion');
+    }
+    const message = typeof err.message === 'string' ? err.message : '';
+    if (message.includes('origen deben ir')) {
+      throw httpError(400, 'invalid_usuario_origen');
     }
     throw httpError(400, 'invalid_referencia');
   }
@@ -147,8 +172,8 @@ router.post('/', async (req, res) => {
   const record = parseBody(req.body);
   try {
     const result = await pool.query(
-      `INSERT INTO "LOTES_REFERENCIAS" ("ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID")
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO "LOTES_REFERENCIAS" ("ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID", "ID_ORIGEN_USUARIO")
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${FIELDS}`,
       [
         record.ID_LOTE,
@@ -156,6 +181,7 @@ router.post('/', async (req, res) => {
         record.REFERENCIA,
         record.DESCRIPCION,
         record.USUARIO_ID,
+        record.ID_ORIGEN_USUARIO,
       ],
     );
     sendData(res, 201, mapRow(result.rows[0]));
@@ -174,8 +200,9 @@ router.put('/:id', async (req, res) => {
            "ID_TIPO" = $2,
            "REFERENCIA" = $3,
            "DESCRIPCION" = $4,
-           "USUARIO_ID" = $5
-       WHERE "ID" = $6
+           "USUARIO_ID" = $5,
+           "ID_ORIGEN_USUARIO" = $6
+       WHERE "ID" = $7
        RETURNING ${FIELDS}`,
       [
         record.ID_LOTE,
@@ -183,6 +210,7 @@ router.put('/:id', async (req, res) => {
         record.REFERENCIA,
         record.DESCRIPCION,
         record.USUARIO_ID,
+        record.ID_ORIGEN_USUARIO,
         id,
       ],
     );
