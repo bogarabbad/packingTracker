@@ -1,4 +1,4 @@
--- Esquema vigente de packing_tracker. Incluye hasta la migración 0014.
+-- Esquema vigente de packing_tracker. Incluye hasta la migración 0015.
 -- Ejecutar una sola vez sobre una base vacía, como usuario packing:
 --   psql -U packing -d packing_tracker -f db/init.sql
 -- Este script deja la base en la versión más avanzada.
@@ -104,6 +104,7 @@ CREATE TABLE "LOTES_REFERENCIAS" (
   "ID_LOTE" integer NOT NULL,
   "ID_TIPO" integer NOT NULL,
   "REFERENCIA" text NOT NULL,
+  "DESCRIPCION" text,
   "USUARIO_ID" integer,
   "CREADO_EN" timestamptz NOT NULL DEFAULT now(),
   "ACTUALIZADO_EN" timestamptz NOT NULL DEFAULT now(),
@@ -113,6 +114,9 @@ CREATE TABLE "LOTES_REFERENCIAS" (
     FOREIGN KEY ("ID_TIPO") REFERENCES "REFERENCIAS_TIPOS" ("ID"),
   CONSTRAINT "LOTES_REFERENCIAS_REFERENCIA_CHK" CHECK (
     length(btrim("REFERENCIA")) > 0
+  ),
+  CONSTRAINT "LOTES_REFERENCIAS_DESCRIPCION_CHK" CHECK (
+    "DESCRIPCION" IS NULL OR length(btrim("DESCRIPCION")) > 0
   ),
   CONSTRAINT "LOTES_REFERENCIAS_USUARIO_ID_CHK" CHECK ("USUARIO_ID" > 0)
 );

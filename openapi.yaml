@@ -612,9 +612,9 @@ paths:
       operationId: updateLoteReferencia
       summary: Reemplaza una referencia de lote
       description: |
-        Reemplaza `ID_LOTE`, `ID_TIPO`, `REFERENCIA` y `USUARIO_ID`.
-        Si `USUARIO_ID` no viene, se guarda como `null`.
-        `REFERENCIA` se recorta. El valor resultante no puede quedar vacío.
+        Reemplaza `ID_LOTE`, `ID_TIPO`, `REFERENCIA`, `DESCRIPCION` y `USUARIO_ID`.
+        Si `DESCRIPCION` o `USUARIO_ID` no vienen, se guardan como `null`.
+        `REFERENCIA` y `DESCRIPCION` se recortan. El valor resultante no puede quedar vacío.
       requestBody:
         $ref: '#/components/requestBodies/LoteReferencia'
       responses:
@@ -1021,7 +1021,7 @@ components:
     LoteReferencia:
       required: true
       description: |
-        `USUARIO_ID` se puede omitir. El servicio lo guarda como `null`.
+        `DESCRIPCION` y `USUARIO_ID` se pueden omitir. El servicio los guarda como `null`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
       content:
         application/json:
@@ -1031,6 +1031,7 @@ components:
             ID_LOTE: 1
             ID_TIPO: 1
             REFERENCIA: PL-100
+            DESCRIPCION: Packing list de salida
             USUARIO_ID: 10
     Catalogo:
       required: true
@@ -1230,7 +1231,7 @@ components:
       description: |
         El cuerpo no es válido, el lote o el tipo no existen, o la referencia queda vacía.
         `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_id_tipo`,
-        `invalid_referencia` o `invalid_usuario_id`.
+        `invalid_referencia`, `invalid_descripcion` o `invalid_usuario_id`.
       content:
         application/json:
           schema:
@@ -1248,6 +1249,12 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_referencia
+            descripcion:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_descripcion
     ErrorLote:
       description: |
         El cuerpo no cumple la jerarquía del lote.
@@ -1826,7 +1833,7 @@ components:
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteReferencia:
       type: object
-      required: [ID, ID_LOTE, ID_TIPO, REFERENCIA, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
+      required: [ID, ID_LOTE, ID_TIPO, REFERENCIA, DESCRIPCION, USUARIO_ID, CREADO_EN, ACTUALIZADO_EN]
       properties:
         ID:
           type: integer
@@ -1844,6 +1851,11 @@ components:
           type: string
           minLength: 1
           description: Identificador externo. Se recortan los espacios.
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Texto libre. Se recortan los espacios. Si se omite, queda `null`.
         USUARIO_ID:
           type: integer
           nullable: true
@@ -1872,12 +1884,16 @@ components:
         REFERENCIA:
           type: string
           minLength: 1
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
         USUARIO_ID:
           type: integer
           nullable: true
           minimum: 1
       description: |
-        En el reemplazo, `USUARIO_ID` omitido se guarda como `null`.
+        En el reemplazo, `DESCRIPCION` y `USUARIO_ID` omitidos se guardan como `null`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object

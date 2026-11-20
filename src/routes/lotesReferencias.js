@@ -5,7 +5,7 @@ const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
 const FIELDS =
-  '"ID", "ID_LOTE", "ID_TIPO", "REFERENCIA", "USUARIO_ID", "CREADO_EN", "ACTUALIZADO_EN"';
+  '"ID", "ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID", "CREADO_EN", "ACTUALIZADO_EN"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -39,6 +39,14 @@ function requiredText(value, error) {
   return value.trim();
 }
 
+function optionalText(value, error) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return requiredText(value, error);
+}
+
 function parseBody(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
@@ -48,6 +56,7 @@ function parseBody(body) {
     ID_LOTE: requiredInteger(body.ID_LOTE, 'invalid_id_lote'),
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
     REFERENCIA: requiredText(body.REFERENCIA, 'invalid_referencia'),
+    DESCRIPCION: optionalText(body.DESCRIPCION, 'invalid_descripcion'),
     USUARIO_ID: optionalInteger(body.USUARIO_ID, 'invalid_usuario_id'),
   };
 }
@@ -62,6 +71,7 @@ function mapRow(row) {
     ID_LOTE: Number(row.ID_LOTE),
     ID_TIPO: Number(row.ID_TIPO),
     REFERENCIA: row.REFERENCIA,
+    DESCRIPCION: row.DESCRIPCION,
     USUARIO_ID: mapNumber(row.USUARIO_ID),
     CREADO_EN: row.CREADO_EN,
     ACTUALIZADO_EN: row.ACTUALIZADO_EN,
@@ -83,6 +93,9 @@ function translate(err) {
   if (err.code === '23514') {
     if (err.constraint === 'LOTES_REFERENCIAS_USUARIO_ID_CHK') {
       throw httpError(400, 'invalid_usuario_id');
+    }
+    if (err.constraint === 'LOTES_REFERENCIAS_DESCRIPCION_CHK') {
+      throw httpError(400, 'invalid_descripcion');
     }
     throw httpError(400, 'invalid_referencia');
   }
@@ -134,10 +147,16 @@ router.post('/', async (req, res) => {
   const record = parseBody(req.body);
   try {
     const result = await pool.query(
-      `INSERT INTO "LOTES_REFERENCIAS" ("ID_LOTE", "ID_TIPO", "REFERENCIA", "USUARIO_ID")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "LOTES_REFERENCIAS" ("ID_LOTE", "ID_TIPO", "REFERENCIA", "DESCRIPCION", "USUARIO_ID")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING ${FIELDS}`,
-      [record.ID_LOTE, record.ID_TIPO, record.REFERENCIA, record.USUARIO_ID],
+      [
+        record.ID_LOTE,
+        record.ID_TIPO,
+        record.REFERENCIA,
+        record.DESCRIPCION,
+        record.USUARIO_ID,
+      ],
     );
     sendData(res, 201, mapRow(result.rows[0]));
   } catch (err) {
@@ -154,10 +173,18 @@ router.put('/:id', async (req, res) => {
        SET "ID_LOTE" = $1,
            "ID_TIPO" = $2,
            "REFERENCIA" = $3,
-           "USUARIO_ID" = $4
-       WHERE "ID" = $5
+           "DESCRIPCION" = $4,
+           "USUARIO_ID" = $5
+       WHERE "ID" = $6
        RETURNING ${FIELDS}`,
-      [record.ID_LOTE, record.ID_TIPO, record.REFERENCIA, record.USUARIO_ID, id],
+      [
+        record.ID_LOTE,
+        record.ID_TIPO,
+        record.REFERENCIA,
+        record.DESCRIPCION,
+        record.USUARIO_ID,
+        id,
+      ],
     );
     const row = result.rows[0];
     if (!row) {
