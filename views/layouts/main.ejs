@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= typeof title !== 'undefined' ? title + ' · packingTracker' : 'packingTracker' %></title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <%- typeof body !== 'undefined' ? body : '' %>
+    <%- include('../partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <% if (typeof scripts !== 'undefined' && scripts && scripts.length) { %>
+      <% scripts.forEach((src) => { %>
+        <script src="<%= src %>" defer></script>
+      <% }) %>
+    <% } %>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+<%#
+  headers, body, bodyId, caption, className, id
+%>
+<div class="ui-table-wrap">
+  <table class="ui-table <%= locals.className || '' %>" <% if (locals.id) { %>id="<%= locals.id %>"<% } %>>
+    <% if (locals.caption) { %>
+      <caption class="mt-4 text-sm text-muted-foreground"><%= locals.caption %></caption>
+    <% } %>
+    <% if (locals.headers && locals.headers.length) { %>
+      <thead>
+        <tr>
+          <% locals.headers.forEach((header) => { %>
+            <th scope="col"><%= header %></th>
+          <% }) %>
+        </tr>
+      </thead>
+    <% } %>
+    <tbody <% if (locals.bodyId) { %>id="<%= locals.bodyId %>"<% } %>>
+      <%- locals.body || '' %>
+    </tbody>
+  </table>
+</div>

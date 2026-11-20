@@ -4,7 +4,7 @@ API para dar trazabilidad a la mercancía que se carga en un camión. El documen
 
 El servicio es agnóstico: no asume un cliente, un almacén ni un formato de mercancía concretos. Otros proyectos lo consumen por HTTP cuando necesitan registrar o consultar la carga.
 
-El servicio abre un pool de PostgreSQL con las variables de `.env`. No hay modelos ni esquema.
+El servicio abre un pool de PostgreSQL con las variables de `.env`. El esquema vive en `db/`.
 
 ## Ejecutar
 
@@ -20,7 +20,15 @@ La API queda en `http://localhost:3000`.
 curl http://localhost:3000/health
 ```
 
-Copia `.env.example` a `.env` y completa la conexión antes de levantar el contenedor. Compose inyecta `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` y `PGPASSWORD` en el servicio.
+Copia `.env.example` a `.env` y completa la conexión y `JWT_SECRET` antes de levantar el contenedor. Compose inyecta esas variables en el servicio.
+
+Salvo `GET /health`, `POST /auth/login` y las páginas web (`/login`, `/dashboard`), todas las rutas de API exigen `Authorization: Bearer <token>`. El usuario semilla es `ADMIN` / `Admin123!` (cámbiala después del primer acceso).
+
+La interfaz web vive en Express con EJS y Tailwind. Compila el CSS con `npm run build:css` (o `npm run watch:css` en desarrollo) y abre `http://localhost:3000/dashboard`.
+
+```bash
+curl -s -H "Content-Type: application/json" -d "{\"CODIGO\":\"ADMIN\",\"CONTRASENA\":\"Admin123!\"}" http://localhost:3000/auth/login
+```
 
 ```json
 {

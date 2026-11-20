@@ -1,0 +1,21 @@
+<%#
+  title, description, body, footer, className, contentId
+%>
+<section class="ui-card <%= locals.className || '' %>">
+  <% if (locals.title || locals.description) { %>
+    <header class="ui-card-header">
+      <% if (locals.title) { %>
+        <h2 class="ui-card-title"><%= locals.title %></h2>
+      <% } %>
+      <% if (locals.description) { %>
+        <p class="ui-card-description"><%= locals.description %></p>
+      <% } %>
+    </header>
+  <% } %>
+  <div class="ui-card-content" <% if (locals.contentId) { %>id="<%= locals.contentId %>"<% } %>>
+    <%- locals.body || '' %>
+  </div>
+  <% if (locals.footer) { %>
+    <footer class="ui-card-footer"><%- locals.footer %></footer>
+  <% } %>
+</section>

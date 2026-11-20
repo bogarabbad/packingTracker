@@ -1,0 +1,13 @@
+<%#
+  id, name, type, value, placeholder, className, attrs, required
+%>
+<input
+  class="ui-input <%= locals.className || '' %>"
+  <% if (locals.id) { %>id="<%= locals.id %>"<% } %>
+  <% if (locals.name) { %>name="<%= locals.name %>"<% } %>
+  type="<%= locals.type || 'text' %>"
+  value="<%= locals.value || '' %>"
+  <% if (locals.placeholder) { %>placeholder="<%= locals.placeholder %>"<% } %>
+  <% if (locals.required) { %>required<% } %>
+  <%- locals.attrs || '' %>
+/>

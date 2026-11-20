@@ -1,0 +1,26 @@
+<%#
+  id, title, description, body, footer
+%>
+<% const dialogId = locals.id || 'dialog'; %>
+<dialog
+  id="<%= dialogId %>"
+  class="ui-dialog-panel backdrop:bg-black/50"
+  aria-labelledby="<%= dialogId %>-title"
+>
+  <header class="flex flex-col gap-2 text-left">
+    <h2 id="<%= dialogId %>-title" class="ui-dialog-title">
+      <%= locals.title || '' %>
+    </h2>
+    <% if (locals.description) { %>
+      <p class="ui-dialog-description"><%= locals.description %></p>
+    <% } %>
+  </header>
+  <div class="mt-2">
+    <%- locals.body || '' %>
+  </div>
+  <% if (locals.footer) { %>
+    <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <%- locals.footer %>
+    </footer>
+  <% } %>
+</dialog>

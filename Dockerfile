@@ -1,3 +1,16 @@
+FROM node:22-alpine AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY src/frontend ./src/frontend
+COPY views ./views
+COPY public/js ./public/js
+RUN mkdir -p public/css \
+  && npx tailwindcss -i ./src/frontend/input.css -o ./public/css/styles.css
+
 FROM node:22-alpine
 
 WORKDIR /app
@@ -9,8 +22,12 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY src ./src
+COPY views ./views
+COPY public ./public
+COPY --from=build /app/public/css/styles.css ./public/css/styles.css
 
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app \
+  && chown -R app:app /app
 USER app
 
 EXPOSE 3000

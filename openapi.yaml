@@ -26,8 +26,11 @@ info:
     El cliente no puede cambiar esas fechas.
 
     Una ruta que no existe responde `404`. El código queda en `error.error` como `not_found` y la ruta en `error.path`.
-    Esta versión no exige autenticación.
-security: []
+
+    Todas las rutas exigen un JWT Bearer, salvo `GET /health` y `POST /auth/login`.
+    El login autentica contra `USUARIOS` y firma un access token HS256.
+security:
+  - BearerAuth: []
 servers:
   - url: http://localhost:3000
     description: API publicada en el host
@@ -35,7 +38,11 @@ servers:
     description: API dentro de la red Docker packing-tracker
 tags:
   - name: Salud
-    description: Disponibilidad del proceso y de PostgreSQL.
+    description: Disponibilidad del proceso y de PostgreSQL. No exige autenticación.
+  - name: Autenticación
+    description: |
+      Emisión de JWT para usuarios internos de `USUARIOS`.
+      El cuerpo usa `CODIGO` y `CONTRASENA`.
   - name: Estatus de unidades
     description: Catálogo `UNIDADES_ESTATUS`.
   - name: Tipos de unidades
@@ -82,6 +89,7 @@ paths:
       tags: [Salud]
       operationId: getHealth
       summary: Estado del servicio y de la base de datos
+      security: []
       responses:
         '200':
           description: La API responde y PostgreSQL acepta la conexión.
@@ -117,6 +125,57 @@ paths:
                       status: error
                 _metadata: {}
                 error: null
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      operationId: login
+      summary: Obtiene un access token
+      security: []
+      description: |
+        Autentica un usuario de `USUARIOS` activo.
+        Responde `401` con `invalid_credentials` si el código o la contraseña no coinciden.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginEntrada'
+            example:
+              CODIGO: ADMIN
+              CONTRASENA: Admin123!
+      responses:
+        '200':
+          description: Token emitido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLogin'
+        '400':
+          description: |
+            Cuerpo inválido.
+            `error.error` puede ser `invalid_body`, `invalid_codigo` o `invalid_contrasena`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_codigo
+        '401':
+          description: Credenciales inválidas o usuario inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_credentials
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /unidades-estatus:
     get:
       tags: [Estatus de unidades]
@@ -942,6 +1001,14 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token emitido por `POST /auth/login`.
+        Enviar `Authorization: Bearer <token>`.
   parameters:
     Id:
       name: id
@@ -1074,6 +1141,27 @@ components:
             ID_ESTATUS: 1
             ACTIVO: true
   responses:
+    NoAutorizado:
+      description: |
+        Falta el Bearer, el token no es válido o ya caducó.
+        `error.error` puede ser `unauthorized`, `invalid_token` o `token_expired`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            missing:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: unauthorized
+            expired:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: token_expired
     CatalogoLista:
       description: Catálogo ordenado por `ID`, recortado a la página pedida.
       content:
@@ -1444,6 +1532,49 @@ components:
             error:
               error: internal_error
   schemas:
+    LoginEntrada:
+      type: object
+      required: [CODIGO, CONTRASENA]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+          description: Código del usuario en `USUARIOS`.
+        CONTRASENA:
+          type: string
+          minLength: 1
+          format: password
+    Login:
+      type: object
+      required: [access_token, token_type, expires_in, usuario]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          minimum: 1
+          description: Segundos de vigencia del token.
+        usuario:
+          type: object
+          required: [ID, CODIGO, NOMBRE]
+          properties:
+            ID:
+              type: integer
+              minimum: 1
+            CODIGO:
+              type: string
+            NOMBRE:
+              type: string
+    RespuestaLogin:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Login'
     Metadata:
       description: |
         Vacío cuando la respuesta no es una lista.

@@ -1,0 +1,17 @@
+<%#
+  label, type, variant, size, className, attrs, href, id
+%>
+<%
+  const btnVariant = locals.variant || 'default';
+  const btnSize = locals.size || 'md';
+  const btnType = locals.type || 'button';
+  const btnClass = locals.className || '';
+  const btnAttrs = locals.attrs || '';
+  const btnId = locals.id ? `id="${locals.id}"` : '';
+  const btnClasses = `ui-btn ui-btn-${btnVariant} ui-btn-${btnSize} ${btnClass}`.trim();
+%>
+<% if (locals.href) { %>
+  <a href="<%= locals.href %>" class="<%= btnClasses %>" <%- btnId %> <%- btnAttrs %>><%- locals.label || '' %></a>
+<% } else { %>
+  <button type="<%= btnType %>" class="<%= btnClasses %>" <%- btnId %> <%- btnAttrs %>><%- locals.label || '' %></button>
+<% } %>

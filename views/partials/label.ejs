@@ -1,0 +1,7 @@
+<%#
+  text, forId, className
+%>
+<label
+  class="ui-label <%= locals.className || '' %>"
+  <% if (locals.forId) { %>for="<%= locals.forId %>"<% } %>
+><%= locals.text || '' %></label>

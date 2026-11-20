@@ -10,11 +10,20 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "build:css": "tailwindcss -i ./src/frontend/input.css -o ./public/css/styles.css",
+    "watch:css": "tailwindcss -i ./src/frontend/input.css -o ./public/css/styles.css --watch"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
+    "ejs": "^7.0.2",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.5",
+    "tailwindcss": "^4.3.5"
   }
 }
