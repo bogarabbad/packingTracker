@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unidades de medida · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'unidades-medida' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Unidades de medida' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="um-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nueva unidad',
+              variant: 'default',
+              size: 'md',
+              id: 'um-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Unidades de medida">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Entera</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="um-tbody">
+                    <tr>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="um-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="um-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="um-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="um-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="um-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="um-form-title" class="ui-dialog-title">Nueva unidad</h2>
+      </header>
+      <form id="um-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="um-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="um-codigo">Código</label>
+          <input class="ui-input" id="um-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="um-nombre">Nombre</label>
+          <input class="ui-input" id="um-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="um-entera" name="ENTERA" type="checkbox" class="size-4 rounded border-input" />
+          <label class="ui-label" for="um-entera">Cantidad entera</label>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="um-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="um-activo">Activa</label>
+        </div>
+        <p id="um-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="um-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="um-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="um-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="um-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="um-delete-title" class="ui-dialog-title">Eliminar unidad</h2>
+        <p class="ui-dialog-description" id="um-delete-text">¿Eliminar esta unidad de medida?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="um-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="um-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/unidades-medida.js" defer></script>
+  </body>
+</html>

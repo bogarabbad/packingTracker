@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Estatus de unidades · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'unidades-estatus' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Estatus de unidades' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="ue-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo estatus',
+              variant: 'default',
+              size: 'md',
+              id: 'ue-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Estatus de unidades">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ue-tbody">
+                    <tr>
+                      <td colspan="4" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="ue-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="ue-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="ue-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="ue-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ue-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ue-form-title" class="ui-dialog-title">Nuevo estatus</h2>
+      </header>
+      <form id="ue-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="ue-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ue-codigo">Código</label>
+          <input class="ui-input" id="ue-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ue-nombre">Nombre</label>
+          <input class="ui-input" id="ue-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="ue-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="ue-activo">Activo</label>
+        </div>
+        <p id="ue-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="ue-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="ue-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="ue-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ue-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ue-delete-title" class="ui-dialog-title">Eliminar estatus</h2>
+        <p class="ui-dialog-description" id="ue-delete-text">¿Eliminar este estatus?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="ue-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="ue-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/unidades-estatus.js" defer></script>
+  </body>
+</html>

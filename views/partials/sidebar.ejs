@@ -1,5 +1,5 @@
 <%#
-  active: 'dashboard' | 'unidades-transporte' | 'unidades-tipos'
+  active: 'dashboard' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida'
 %>
 <%
   const active = locals.active || '';
@@ -19,12 +19,20 @@
     <p class="ui-sidebar-section">Operación</p>
     <a href="/dashboard" class="<%= navClass('dashboard') %>">Panel</a>
 
-    <p class="ui-sidebar-section">Catálogos</p>
-    <a href="/catalogos/unidades-tipos" class="<%= navClass('unidades-tipos') %>">
-      Tipos de unidades
-    </a>
+    <p class="ui-sidebar-section">Unidades de transporte</p>
     <a href="/catalogos/unidades-transporte" class="<%= navClass('unidades-transporte') %>">
-      Unidades de transporte
+      Unidades
+    </a>
+    <a href="/catalogos/unidades-tipos" class="<%= navClass('unidades-tipos') %>">
+      Tipos
+    </a>
+    <a href="/catalogos/unidades-estatus" class="<%= navClass('unidades-estatus') %>">
+      Estatus
+    </a>
+
+    <p class="ui-sidebar-section">Catálogos</p>
+    <a href="/catalogos/unidades-medida" class="<%= navClass('unidades-medida') %>">
+      Unidades de medida
     </a>
   </nav>
 </aside>

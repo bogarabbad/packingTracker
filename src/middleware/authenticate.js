@@ -10,6 +10,8 @@ const PUBLIC_PATHS = new Set([
   '/dashboard',
   '/catalogos/unidades-transporte',
   '/catalogos/unidades-tipos',
+  '/catalogos/unidades-estatus',
+  '/catalogos/unidades-medida',
 ]);
 
 function authenticate(req, res, next) {

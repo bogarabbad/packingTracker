@@ -22,4 +22,12 @@ router.get('/catalogos/unidades-tipos', (req, res) => {
   res.render('unidades-tipos');
 });
 
+router.get('/catalogos/unidades-estatus', (req, res) => {
+  res.render('unidades-estatus');
+});
+
+router.get('/catalogos/unidades-medida', (req, res) => {
+  res.render('unidades-medida');
+});
+
 module.exports = router;
