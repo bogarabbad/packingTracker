@@ -1,0 +1,31 @@
+<%#
+  active: 'dashboard' | 'unidades-transporte' | 'unidades-tipos'
+%>
+<%
+  const active = locals.active || '';
+  function navClass(key) {
+    const base = 'ui-sidebar-link';
+    return key === active ? `${base} ui-sidebar-link-active` : base;
+  }
+%>
+<aside id="app-sidebar" class="ui-sidebar" aria-label="Navegación principal">
+  <div class="ui-sidebar-brand">
+    <a href="/dashboard" class="text-lg font-semibold tracking-tight text-foreground">
+      packingTracker
+    </a>
+  </div>
+
+  <nav class="ui-sidebar-nav">
+    <p class="ui-sidebar-section">Operación</p>
+    <a href="/dashboard" class="<%= navClass('dashboard') %>">Panel</a>
+
+    <p class="ui-sidebar-section">Catálogos</p>
+    <a href="/catalogos/unidades-tipos" class="<%= navClass('unidades-tipos') %>">
+      Tipos de unidades
+    </a>
+    <a href="/catalogos/unidades-transporte" class="<%= navClass('unidades-transporte') %>">
+      Unidades de transporte
+    </a>
+  </nav>
+</aside>
+<div id="sidebar-backdrop" class="ui-sidebar-backdrop" hidden></div>

@@ -1,0 +1,17 @@
+<%#
+  id, name, className, attrs, required, options: [{ value, label }], blankLabel
+%>
+<select
+  class="ui-input <%= locals.className || '' %>"
+  <% if (locals.id) { %>id="<%= locals.id %>"<% } %>
+  <% if (locals.name) { %>name="<%= locals.name %>"<% } %>
+  <% if (locals.required) { %>required<% } %>
+  <%- locals.attrs || '' %>
+>
+  <% if (locals.blankLabel !== undefined) { %>
+    <option value=""><%= locals.blankLabel %></option>
+  <% } %>
+  <% (locals.options || []).forEach((opt) => { %>
+    <option value="<%= opt.value %>" <%= opt.selected ? 'selected' : '' %>><%= opt.label %></option>
+  <% }) %>
+</select>

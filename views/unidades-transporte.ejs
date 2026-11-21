@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unidades de transporte · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'unidades-transporte' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Unidades de transporte' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="ut-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nueva unidad',
+              variant: 'default',
+              size: 'md',
+              id: 'ut-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Unidades de transporte">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Placas</th>
+                      <th scope="col">Tipo</th>
+                      <th scope="col">Estatus</th>
+                      <th scope="col">Marca</th>
+                      <th scope="col">Modelo</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ut-tbody">
+                    <tr>
+                      <td colspan="8" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="ut-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="ut-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="ut-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="ut-form-dialog" class="ui-dialog-panel ui-dialog-wide backdrop:bg-black/50" aria-labelledby="ut-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ut-form-title" class="ui-dialog-title">Nueva unidad</h2>
+      </header>
+      <form id="ut-form" class="mt-4 grid gap-4 sm:grid-cols-2">
+        <input type="hidden" id="ut-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-codigo">Código</label>
+          <input class="ui-input" id="ut-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-placas">Placas</label>
+          <input class="ui-input" id="ut-placas" name="PLACAS" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-id-tipo">Tipo</label>
+          <select class="ui-input" id="ut-id-tipo" name="ID_TIPO" required></select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-id-estatus">Estatus</label>
+          <select class="ui-input" id="ut-id-estatus" name="ID_ESTATUS" required></select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-numero-economico">Número económico</label>
+          <input class="ui-input" id="ut-numero-economico" name="NUMERO_ECONOMICO" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-numero-serie">Número de serie</label>
+          <input class="ui-input" id="ut-numero-serie" name="NUMERO_SERIE" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-marca">Marca</label>
+          <input class="ui-input" id="ut-marca" name="MARCA" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-modelo">Modelo</label>
+          <input class="ui-input" id="ut-modelo" name="MODELO" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-anio">Año</label>
+          <input class="ui-input" id="ut-anio" name="ANIO" type="number" min="1980" max="2100" step="1" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-capacidad-kg">Capacidad (kg)</label>
+          <input class="ui-input" id="ut-capacidad-kg" name="CAPACIDAD_CARGA_KG" type="number" min="0" step="0.01" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ut-capacidad-m3">Capacidad (m³)</label>
+          <input class="ui-input" id="ut-capacidad-m3" name="CAPACIDAD_VOLUMEN_M3" type="number" min="0" step="0.01" />
+        </div>
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <input id="ut-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="ut-activo">Activa</label>
+        </div>
+        <p id="ut-form-error" class="hidden text-sm text-destructive sm:col-span-2" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+          <button type="button" id="ut-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="ut-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="ut-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ut-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ut-delete-title" class="ui-dialog-title">Eliminar unidad</h2>
+        <p class="ui-dialog-description" id="ut-delete-text">¿Eliminar esta unidad de transporte?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="ut-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="ut-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/unidades-transporte.js" defer></script>
+  </body>
+</html>

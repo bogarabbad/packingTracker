@@ -2,7 +2,15 @@ const { verifyAccessToken } = require('../auth/token');
 const { httpError } = require('../httpError');
 const { sendError } = require('../respond');
 
-const PUBLIC_PATHS = new Set(['/health', '/auth/login', '/', '/login', '/dashboard']);
+const PUBLIC_PATHS = new Set([
+  '/health',
+  '/auth/login',
+  '/',
+  '/login',
+  '/dashboard',
+  '/catalogos/unidades-transporte',
+  '/catalogos/unidades-tipos',
+]);
 
 function authenticate(req, res, next) {
   if (

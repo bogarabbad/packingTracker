@@ -1,22 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const logoutBtn = document.getElementById('btn-logout');
-  const sessionUser = document.getElementById('session-user');
-
   if (!window.PackingApi.isAuthenticated()) {
-    window.location.replace('/login');
     return;
   }
-
-  const usuario = window.PackingApi.getUsuario();
-  if (usuario && sessionUser) {
-    sessionUser.textContent = `${usuario.CODIGO} · ${usuario.NOMBRE}`;
-    sessionUser.classList.remove('hidden');
-  }
-
-  logoutBtn.addEventListener('click', () => {
-    window.PackingApi.logout();
-    window.location.assign('/login');
-  });
 
   function fillStat(containerId, total, label) {
     const node = document.getElementById(containerId);

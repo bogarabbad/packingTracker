@@ -213,7 +213,11 @@
   }
 
   .ui-dialog-panel[open] {
-    @apply fixed top-1/2 left-1/2 z-50 grid -translate-x-1/2 -translate-y-1/2;
+    @apply fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,48rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto;
+  }
+
+  .ui-dialog-panel.ui-dialog-wide {
+    @apply sm:max-w-2xl;
   }
 
   .ui-dialog-title {
@@ -222,6 +226,62 @@
 
   .ui-dialog-description {
     @apply text-sm text-muted-foreground;
+  }
+
+  .ui-app {
+    @apply flex min-h-screen bg-background;
+  }
+
+  .ui-sidebar {
+    @apply fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-out;
+  }
+
+  .ui-sidebar.is-open {
+    @apply translate-x-0;
+  }
+
+  .ui-app.sidebar-open .ui-app-main {
+    @apply lg:pl-64;
+  }
+
+  .ui-sidebar-backdrop {
+    @apply fixed inset-0 z-30 bg-black/40 lg:hidden;
+  }
+
+  .ui-icon-burger {
+    @apply pointer-events-none size-5;
+  }
+
+  .ui-sidebar-brand {
+    @apply flex h-14 items-center border-b border-border px-4;
+  }
+
+  .ui-sidebar-nav {
+    @apply flex flex-1 flex-col gap-1 overflow-y-auto p-3;
+  }
+
+  .ui-sidebar-section {
+    @apply px-2 pt-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase;
+  }
+
+  .ui-sidebar-link {
+    @apply rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .ui-sidebar-link-active {
+    @apply bg-accent font-medium text-accent-foreground;
+  }
+
+  .ui-app-main {
+    @apply flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-out;
+  }
+
+  .ui-topbar {
+    @apply sticky top-0 z-20 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6;
+  }
+
+  .ui-page {
+    @apply mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6;
   }
 
   .ui-toast-viewport {

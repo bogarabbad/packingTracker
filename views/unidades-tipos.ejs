@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tipos de unidades · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'unidades-tipos' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Tipos de unidades' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="uti-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo tipo',
+              variant: 'default',
+              size: 'md',
+              id: 'uti-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Tipos de unidades">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="uti-tbody">
+                    <tr>
+                      <td colspan="4" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="uti-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="uti-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="uti-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="uti-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="uti-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="uti-form-title" class="ui-dialog-title">Nuevo tipo</h2>
+      </header>
+      <form id="uti-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="uti-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="uti-codigo">Código</label>
+          <input class="ui-input" id="uti-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="uti-nombre">Nombre</label>
+          <input class="ui-input" id="uti-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="uti-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="uti-activo">Activo</label>
+        </div>
+        <p id="uti-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="uti-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="uti-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="uti-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="uti-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="uti-delete-title" class="ui-dialog-title">Eliminar tipo</h2>
+        <p class="ui-dialog-description" id="uti-delete-text">¿Eliminar este tipo de unidad?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="uti-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="uti-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/unidades-tipos.js" defer></script>
+  </body>
+</html>
