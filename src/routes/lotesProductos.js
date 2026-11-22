@@ -5,7 +5,7 @@ const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 
 const FIELDS =
-  '"ID", "ID_LOTE", "ID_PRODUCTO", "CLAVE_PRODUCTO", "CANTIDAD", "ID_UNIDAD", "CREADO_EN", "ACTUALIZADO_EN"';
+  '"ID", "ID_LOTE", "CLAVE_PRODUCTO", "CANTIDAD", "ID_UNIDAD", "CREADO_EN", "ACTUALIZADO_EN"';
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -23,19 +23,7 @@ function requiredInteger(value, error) {
   return value;
 }
 
-function optionalInteger(value, error) {
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  return requiredInteger(value, error);
-}
-
-function optionalText(value, error) {
-  if (value === undefined || value === null) {
-    return null;
-  }
-
+function requiredText(value, error) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw httpError(400, error);
   }
@@ -56,16 +44,9 @@ function parseBody(body) {
     throw httpError(400, 'invalid_body');
   }
 
-  const idProducto = optionalInteger(body.ID_PRODUCTO, 'invalid_id_producto');
-  const claveProducto = optionalText(body.CLAVE_PRODUCTO, 'invalid_clave_producto');
-  if (idProducto === null && claveProducto === null) {
-    throw httpError(400, 'invalid_producto_referencia');
-  }
-
   return {
     ID_LOTE: requiredInteger(body.ID_LOTE, 'invalid_id_lote'),
-    ID_PRODUCTO: idProducto,
-    CLAVE_PRODUCTO: claveProducto,
+    CLAVE_PRODUCTO: requiredText(body.CLAVE_PRODUCTO, 'invalid_clave_producto'),
     CANTIDAD: requiredQuantity(body.CANTIDAD),
     ID_UNIDAD: requiredInteger(body.ID_UNIDAD, 'invalid_id_unidad'),
   };
@@ -79,7 +60,6 @@ function mapRow(row) {
   return {
     ID: Number(row.ID),
     ID_LOTE: Number(row.ID_LOTE),
-    ID_PRODUCTO: mapNumber(row.ID_PRODUCTO),
     CLAVE_PRODUCTO: row.CLAVE_PRODUCTO,
     CANTIDAD: mapNumber(row.CANTIDAD),
     ID_UNIDAD: Number(row.ID_UNIDAD),
@@ -107,14 +87,8 @@ function translate(err) {
     if (err.constraint === 'LOTES_PRODUCTOS_CANTIDAD_CHK') {
       throw httpError(400, 'invalid_cantidad');
     }
-    if (err.constraint === 'LOTES_PRODUCTOS_ID_PRODUCTO_CHK') {
-      throw httpError(400, 'invalid_id_producto');
-    }
     if (err.constraint === 'LOTES_PRODUCTOS_CLAVE_PRODUCTO_CHK') {
       throw httpError(400, 'invalid_clave_producto');
-    }
-    if (err.constraint === 'LOTES_PRODUCTOS_REFERENCIA_CHK') {
-      throw httpError(400, 'invalid_producto_referencia');
     }
 
     const message = typeof err.message === 'string' ? err.message : '';
@@ -202,13 +176,12 @@ router.post('/', async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO "LOTES_PRODUCTOS" (
-         "ID_LOTE", "ID_PRODUCTO", "CLAVE_PRODUCTO", "CANTIDAD", "ID_UNIDAD"
+         "ID_LOTE", "CLAVE_PRODUCTO", "CANTIDAD", "ID_UNIDAD"
        )
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1, $2, $3, $4)
        RETURNING ${FIELDS}`,
       [
         record.ID_LOTE,
-        record.ID_PRODUCTO,
         record.CLAVE_PRODUCTO,
         record.CANTIDAD,
         record.ID_UNIDAD,
@@ -227,15 +200,13 @@ router.put('/:id', async (req, res) => {
     const result = await pool.query(
       `UPDATE "LOTES_PRODUCTOS"
        SET "ID_LOTE" = $1,
-           "ID_PRODUCTO" = $2,
-           "CLAVE_PRODUCTO" = $3,
-           "CANTIDAD" = $4,
-           "ID_UNIDAD" = $5
-       WHERE "ID" = $6
+           "CLAVE_PRODUCTO" = $2,
+           "CANTIDAD" = $3,
+           "ID_UNIDAD" = $4
+       WHERE "ID" = $5
        RETURNING ${FIELDS}`,
       [
         record.ID_LOTE,
-        record.ID_PRODUCTO,
         record.CLAVE_PRODUCTO,
         record.CANTIDAD,
         record.ID_UNIDAD,

@@ -138,18 +138,14 @@
           </div>
           <form id="lo-prod-form" class="grid gap-3 sm:grid-cols-2">
             <div class="flex flex-col gap-2">
-              <label class="ui-label" for="lo-prod-id">ID producto</label>
-              <input class="ui-input" id="lo-prod-id" type="number" min="1" step="1" />
-            </div>
-            <div class="flex flex-col gap-2">
               <label class="ui-label" for="lo-prod-clave">Clave</label>
-              <input class="ui-input" id="lo-prod-clave" autocomplete="off" />
+              <input class="ui-input" id="lo-prod-clave" required autocomplete="off" />
             </div>
             <div class="flex flex-col gap-2">
               <label class="ui-label" for="lo-prod-cantidad">Cantidad</label>
               <input class="ui-input" id="lo-prod-cantidad" type="number" min="0.001" step="0.001" required />
             </div>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-2 sm:col-span-2">
               <label class="ui-label" for="lo-prod-unidad">Unidad de medida</label>
               <select class="ui-input" id="lo-prod-unidad" required></select>
             </div>
@@ -162,7 +158,6 @@
             <table class="ui-table" aria-label="Productos del lote">
               <thead>
                 <tr>
-                  <th scope="col">ID producto</th>
                   <th scope="col">Clave</th>
                   <th scope="col">Cantidad</th>
                   <th scope="col">Unidad</th>
@@ -170,7 +165,7 @@
                 </tr>
               </thead>
               <tbody id="lo-prod-tbody">
-                <tr><td colspan="5" class="text-muted-foreground">Sin productos.</td></tr>
+                <tr><td colspan="4" class="text-muted-foreground">Sin productos.</td></tr>
               </tbody>
             </table>
           </div>

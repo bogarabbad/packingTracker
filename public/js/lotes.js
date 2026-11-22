@@ -56,9 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_lote: 'Lote inválido.',
       invalid_referencia: 'Referencia inválida.',
       invalid_descripcion: 'Descripción inválida.',
-      invalid_id_producto: 'ID de producto inválido.',
       invalid_clave_producto: 'Clave de producto inválida.',
-      invalid_producto_referencia: 'Indica ID de producto, clave o ambos.',
       invalid_cantidad: 'Cantidad inválida.',
       invalid_producto: 'Producto inválido.',
       record_in_use: 'El lote está en uso y no se puede eliminar.',
@@ -268,20 +266,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
   }
 
+  function defaultUnidadId(unidades) {
+    const unidad = unidades.find((row) => row.CODIGO === 'unidad');
+    return unidad ? String(unidad.ID) : '';
+  }
+
+  function fillProdUnidadSelect(unidades) {
+    const select = document.getElementById('lo-prod-unidad');
+    fillSelect(
+      select,
+      unidades,
+      unidades.length ? 'Selecciona una unidad' : 'Sin unidades para este tipo',
+      (unidad) => `${unidad.CODIGO} · ${unidad.NOMBRE}`,
+    );
+    select.disabled = unidades.length === 0;
+    const defaultId = defaultUnidadId(unidades);
+    if (defaultId) {
+      select.value = defaultId;
+    }
+  }
+
   function renderProductos() {
     const rows = state.productos;
     document.getElementById('lo-prod-status').textContent = `${rows.length} producto(s)`;
     if (!rows.length) {
       document.getElementById('lo-prod-tbody').innerHTML =
-        '<tr><td colspan="5" class="text-muted-foreground">Sin productos.</td></tr>';
+        '<tr><td colspan="4" class="text-muted-foreground">Sin productos.</td></tr>';
       return;
     }
     document.getElementById('lo-prod-tbody').innerHTML = rows.map((row) => {
       const unidad = state.unidadesMedida.get(row.ID_UNIDAD);
       return `
         <tr data-id="${row.ID}">
-          <td>${row.ID_PRODUCTO == null ? '—' : row.ID_PRODUCTO}</td>
-          <td>${escapeHtml(row.CLAVE_PRODUCTO || '—')}</td>
+          <td>${escapeHtml(row.CLAVE_PRODUCTO)}</td>
           <td>${escapeHtml(row.CANTIDAD)}</td>
           <td>${escapeHtml(unidad ? unidad.NOMBRE : row.ID_UNIDAD)}</td>
           <td class="text-right">
@@ -317,13 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const unidades = relaciones
         .map((rel) => state.unidadesMedida.get(rel.ID_UNIDAD))
         .filter(Boolean);
-      fillSelect(
-        document.getElementById('lo-prod-unidad'),
-        unidades,
-        unidades.length ? 'Selecciona una unidad' : 'Sin unidades para este tipo',
-        (unidad) => `${unidad.CODIGO} · ${unidad.NOMBRE}`,
-      );
-      document.getElementById('lo-prod-unidad').disabled = unidades.length === 0;
+      fillProdUnidadSelect(unidades);
 
       if (!prods.ok) {
         window.PackingToast.toast(mapError(prods.error), 'error');
@@ -599,8 +610,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showProdError('');
     const payload = {
       ID_LOTE: state.detailLote.ID,
-      ID_PRODUCTO: optionalNumber(document.getElementById('lo-prod-id').value),
-      CLAVE_PRODUCTO: optionalText(document.getElementById('lo-prod-clave').value),
+      CLAVE_PRODUCTO: document.getElementById('lo-prod-clave').value.trim(),
       CANTIDAD: Number(document.getElementById('lo-prod-cantidad').value),
       ID_UNIDAD: Number(document.getElementById('lo-prod-unidad').value),
     };
@@ -613,9 +623,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.PackingToast.toast(mapError(result.error), 'error');
       return;
     }
-    document.getElementById('lo-prod-form').reset();
     window.PackingToast.toast('Producto agregado');
     await loadDetailChildren(state.detailLote);
+    document.getElementById('lo-prod-form').reset();
+    const select = document.getElementById('lo-prod-unidad');
+    const unidadDefault = [...select.options].find((option) => {
+      const unidad = state.unidadesMedida.get(Number(option.value));
+      return unidad && unidad.CODIGO === 'unidad';
+    });
+    if (unidadDefault) {
+      select.value = unidadDefault.value;
+    }
   });
 
   document.getElementById('lo-prod-tbody').addEventListener('click', async (event) => {

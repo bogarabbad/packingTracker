@@ -78,7 +78,8 @@ tags:
       Registro `LOTES_PRODUCTOS`.
       Solo un lote de categoría final puede llevar productos.
       La unidad de medida debe estar permitida para el tipo del lote.
-      Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+      El producto externo se identifica solo por `CLAVE_PRODUCTO`.
+      El `ID` de la fila lo asigna la base como identity.
       El listado acepta `id_lote` para filtrar.
   - name: Lotes
     description: |
@@ -795,9 +796,8 @@ paths:
       operationId: updateLoteProducto
       summary: Reemplaza un producto de lote
       description: |
-        Reemplaza `ID_LOTE`, `ID_PRODUCTO`, `CLAVE_PRODUCTO`, `CANTIDAD` e `ID_UNIDAD`.
-        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
-        Si `ID_PRODUCTO` o `CLAVE_PRODUCTO` no vienen, se guardan como `null`.
+        Reemplaza `ID_LOTE`, `CLAVE_PRODUCTO`, `CANTIDAD` e `ID_UNIDAD`.
+        `CLAVE_PRODUCTO` es obligatoria y se recortan los espacios.
       requestBody:
         $ref: '#/components/requestBodies/LoteProducto'
       responses:
@@ -1246,7 +1246,7 @@ components:
     LoteProducto:
       required: true
       description: |
-        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+        El producto externo se identifica por `CLAVE_PRODUCTO`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
       content:
         application/json:
@@ -1254,12 +1254,9 @@ components:
             $ref: '#/components/schemas/LoteProductoEntrada'
           example:
             ID_LOTE: 1
-            ID_PRODUCTO: 100
             CLAVE_PRODUCTO: SKU-100
             CANTIDAD: 12
             ID_UNIDAD: 1
-            USUARIO_ID: 10
-            ID_ORIGEN_USUARIO: 1
     Catalogo:
       required: true
       content:
@@ -1479,9 +1476,8 @@ components:
       description: |
         El cuerpo no es válido, el lote no es final, la unidad no corresponde al tipo
         o la cantidad no cumple la unidad entera.
-        `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_id_producto`,
-        `invalid_clave_producto`, `invalid_producto_referencia`, `invalid_cantidad`,
-        `invalid_id_unidad`, `invalid_tipo_lote` o `invalid_producto`.
+        `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_clave_producto`,
+        `invalid_cantidad`, `invalid_id_unidad`, `invalid_tipo_lote` o `invalid_producto`.
       content:
         application/json:
           schema:
@@ -2267,7 +2263,6 @@ components:
       required:
         - ID
         - ID_LOTE
-        - ID_PRODUCTO
         - CLAVE_PRODUCTO
         - CANTIDAD
         - ID_UNIDAD
@@ -2278,18 +2273,13 @@ components:
           type: integer
           minimum: 1
           readOnly: true
+          description: Identificador de la fila. Lo asigna la base como identity.
         ID_LOTE:
           type: integer
           minimum: 1
           description: Referencia a un `LOTES` de categoría final.
-        ID_PRODUCTO:
-          type: integer
-          nullable: true
-          minimum: 1
-          description: Identificador externo del producto. Debe venir este campo, `CLAVE_PRODUCTO` o ambos.
         CLAVE_PRODUCTO:
           type: string
-          nullable: true
           minLength: 1
           description: Clave externa del producto. Se recortan los espacios.
         CANTIDAD:
@@ -2310,18 +2300,13 @@ components:
           readOnly: true
     LoteProductoEntrada:
       type: object
-      required: [ID_LOTE, CANTIDAD, ID_UNIDAD]
+      required: [ID_LOTE, CLAVE_PRODUCTO, CANTIDAD, ID_UNIDAD]
       properties:
         ID_LOTE:
           type: integer
           minimum: 1
-        ID_PRODUCTO:
-          type: integer
-          nullable: true
-          minimum: 1
         CLAVE_PRODUCTO:
           type: string
-          nullable: true
           minLength: 1
         CANTIDAD:
           type: number
@@ -2330,8 +2315,7 @@ components:
           type: integer
           minimum: 1
       description: |
-        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
-        En el reemplazo, `ID_PRODUCTO` o `CLAVE_PRODUCTO` omitidos se guardan como `null`.
+        El producto externo se identifica por `CLAVE_PRODUCTO`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object
