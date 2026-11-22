@@ -13,6 +13,8 @@ const PUBLIC_PATHS = new Set([
   '/catalogos/unidades-estatus',
   '/catalogos/unidades-medida',
   '/catalogos/lotes-tipos',
+  '/catalogos/referencias-tipos',
+  '/operacion/lotes',
 ]);
 
 function authenticate(req, res, next) {

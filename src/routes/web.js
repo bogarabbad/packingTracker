@@ -34,4 +34,12 @@ router.get('/catalogos/lotes-tipos', (req, res) => {
   res.render('lotes-tipos');
 });
 
+router.get('/catalogos/referencias-tipos', (req, res) => {
+  res.render('referencias-tipos');
+});
+
+router.get('/operacion/lotes', (req, res) => {
+  res.render('lotes');
+});
+
 module.exports = router;

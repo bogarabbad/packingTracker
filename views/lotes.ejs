@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lotes · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'lotes' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Lotes' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="lo-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo lote',
+              variant: 'default',
+              size: 'md',
+              id: 'lo-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Lotes">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Tipo</th>
+                      <th scope="col">Final</th>
+                      <th scope="col">Padre</th>
+                      <th scope="col">Unidad transporte</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lo-tbody">
+                    <tr>
+                      <td colspan="6" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="lo-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="lo-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="lo-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="lo-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="lo-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lo-form-title" class="ui-dialog-title">Nuevo lote</h2>
+      </header>
+      <form id="lo-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="lo-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="lo-id-tipo">Tipo</label>
+          <select class="ui-input" id="lo-id-tipo" name="ID_TIPO" required></select>
+        </div>
+        <div id="lo-padre-wrap" class="flex flex-col gap-2">
+          <label class="ui-label" for="lo-padre-id">Lote padre</label>
+          <select class="ui-input" id="lo-padre-id" name="PADRE_ID"></select>
+        </div>
+        <div id="lo-unidad-wrap" class="hidden flex flex-col gap-2">
+          <label class="ui-label" for="lo-id-unidad">Unidad de transporte</label>
+          <select class="ui-input" id="lo-id-unidad" name="ID_UNIDAD"></select>
+        </div>
+        <p id="lo-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="lo-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="lo-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="lo-detail-dialog" class="ui-dialog-panel ui-dialog-wide backdrop:bg-black/50" aria-labelledby="lo-detail-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lo-detail-title" class="ui-dialog-title">Detalle del lote</h2>
+        <p id="lo-detail-subtitle" class="ui-dialog-description"></p>
+      </header>
+
+      <div class="mt-4 grid gap-6">
+        <div class="flex flex-wrap gap-2" id="lo-detail-badges"></div>
+
+        <section class="grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Referencias</h3>
+            <p id="lo-ref-status" class="text-sm text-muted-foreground"></p>
+          </div>
+          <form id="lo-ref-form" class="grid gap-3 sm:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-ref-tipo">Tipo</label>
+              <select class="ui-input" id="lo-ref-tipo" required></select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-ref-referencia">Referencia</label>
+              <input class="ui-input" id="lo-ref-referencia" required autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2 sm:col-span-2">
+              <label class="ui-label" for="lo-ref-descripcion">Descripción</label>
+              <input class="ui-input" id="lo-ref-descripcion" autocomplete="off" />
+            </div>
+            <div class="sm:col-span-2">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Agregar referencia</button>
+            </div>
+          </form>
+          <p id="lo-ref-error" class="hidden text-sm text-destructive" role="alert"></p>
+          <div class="ui-table-wrap">
+            <table class="ui-table" aria-label="Referencias del lote">
+              <thead>
+                <tr>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Referencia</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col" class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="lo-ref-tbody">
+                <tr><td colspan="4" class="text-muted-foreground">Sin referencias.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="lo-prod-section" class="grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Productos</h3>
+            <p id="lo-prod-status" class="text-sm text-muted-foreground"></p>
+          </div>
+          <form id="lo-prod-form" class="grid gap-3 sm:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-prod-id">ID producto</label>
+              <input class="ui-input" id="lo-prod-id" type="number" min="1" step="1" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-prod-clave">Clave</label>
+              <input class="ui-input" id="lo-prod-clave" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-prod-cantidad">Cantidad</label>
+              <input class="ui-input" id="lo-prod-cantidad" type="number" min="0.001" step="0.001" required />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-prod-unidad">Unidad de medida</label>
+              <select class="ui-input" id="lo-prod-unidad" required></select>
+            </div>
+            <div class="sm:col-span-2">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Agregar producto</button>
+            </div>
+          </form>
+          <p id="lo-prod-error" class="hidden text-sm text-destructive" role="alert"></p>
+          <div class="ui-table-wrap">
+            <table class="ui-table" aria-label="Productos del lote">
+              <thead>
+                <tr>
+                  <th scope="col">ID producto</th>
+                  <th scope="col">Clave</th>
+                  <th scope="col">Cantidad</th>
+                  <th scope="col">Unidad</th>
+                  <th scope="col" class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="lo-prod-tbody">
+                <tr><td colspan="5" class="text-muted-foreground">Sin productos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p id="lo-prod-hint" class="hidden text-sm text-muted-foreground">
+          Solo los lotes de categoría final pueden llevar productos.
+        </p>
+      </div>
+
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="lo-detail-close" class="ui-btn ui-btn-outline ui-btn-md">Cerrar</button>
+        <button type="button" id="lo-detail-edit" class="ui-btn ui-btn-default ui-btn-md">Editar lote</button>
+      </footer>
+    </dialog>
+
+    <dialog id="lo-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="lo-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lo-delete-title" class="ui-dialog-title">Eliminar lote</h2>
+        <p class="ui-dialog-description" id="lo-delete-text">¿Eliminar este lote?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="lo-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="lo-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/lotes.js" defer></script>
+  </body>
+</html>

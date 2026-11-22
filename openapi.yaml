@@ -12,8 +12,8 @@ info:
 
     Esta versión publica el estado del servicio, el CRUD de los catálogos
     `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS`, `UNIDADES` y `REFERENCIAS_TIPOS`,
-    el CRUD de `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES`, el CRUD de `LOTES_REFERENCIAS`
-    y el CRUD de `UNIDADES_TRANSPORTE`.
+    el CRUD de `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES`, el CRUD de `LOTES_REFERENCIAS`,
+    el CRUD de `LOTES_PRODUCTOS` y el CRUD de `UNIDADES_TRANSPORTE`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -72,6 +72,14 @@ tags:
       Une un lote con una referencia externa y el tipo de esa referencia.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
+      El listado acepta `id_lote` para filtrar.
+  - name: Productos de lote
+    description: |
+      Registro `LOTES_PRODUCTOS`.
+      Solo un lote de categoría final puede llevar productos.
+      La unidad de medida debe estar permitida para el tipo del lote.
+      Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+      El listado acepta `id_lote` para filtrar.
   - name: Lotes
     description: |
       Registro `LOTES`.
@@ -627,15 +635,22 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdLote'
       responses:
         '200':
-          description: Referencias ordenadas por `ID`.
+          description: Referencias ordenadas por `ID`. Si viene `id_lote`, solo ese lote.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaLoteReferenciaLista'
         '400':
-          $ref: '#/components/responses/PaginacionInvalida'
+          description: |
+            Paginación inválida o `id_lote` inválido.
+            `error.error` puede ser el de la paginación o `invalid_id_lote`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     post:
@@ -703,6 +718,105 @@ paths:
       tags: [Referencias de lote]
       operationId: deleteLoteReferencia
       summary: Elimina una referencia de lote
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-productos:
+    get:
+      tags: [Productos de lote]
+      operationId: listLotesProductos
+      summary: Lista los productos de lote
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdLote'
+      responses:
+        '200':
+          description: Productos ordenados por `ID`. Si viene `id_lote`, solo ese lote.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteProductoLista'
+        '400':
+          description: |
+            Paginación inválida o `id_lote` inválido.
+            `error.error` puede ser el de la paginación o `invalid_id_lote`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Productos de lote]
+      operationId: createLoteProducto
+      summary: Crea un producto en un lote
+      requestBody:
+        $ref: '#/components/requestBodies/LoteProducto'
+      responses:
+        '201':
+          description: Producto creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteProducto'
+        '400':
+          $ref: '#/components/responses/ErrorLoteProducto'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-productos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Productos de lote]
+      operationId: getLoteProducto
+      summary: Obtiene un producto de lote
+      responses:
+        '200':
+          description: Producto.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteProducto'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Productos de lote]
+      operationId: updateLoteProducto
+      summary: Reemplaza un producto de lote
+      description: |
+        Reemplaza `ID_LOTE`, `ID_PRODUCTO`, `CLAVE_PRODUCTO`, `CANTIDAD` e `ID_UNIDAD`.
+        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+        Si `ID_PRODUCTO` o `CLAVE_PRODUCTO` no vienen, se guardan como `null`.
+      requestBody:
+        $ref: '#/components/requestBodies/LoteProducto'
+      responses:
+        '200':
+          description: Producto actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteProducto'
+        '400':
+          $ref: '#/components/responses/ErrorLoteProducto'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Productos de lote]
+      operationId: deleteLoteProducto
+      summary: Elimina un producto de lote
       responses:
         '200':
           $ref: '#/components/responses/Eliminado'
@@ -1051,6 +1165,14 @@ components:
       schema:
         type: string
         pattern: '^[1-9]\d*$'
+    IdLote:
+      name: id_lote
+      in: query
+      required: false
+      description: Filtra por identificador de lote. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
   requestBodies:
     LoteTipo:
       required: true
@@ -1121,6 +1243,21 @@ components:
             ID_TIPO: 1
             REFERENCIA: PL-100
             DESCRIPCION: Packing list de salida
+    LoteProducto:
+      required: true
+      description: |
+        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteProductoEntrada'
+          example:
+            ID_LOTE: 1
+            ID_PRODUCTO: 100
+            CLAVE_PRODUCTO: SKU-100
+            CANTIDAD: 12
+            ID_UNIDAD: 1
             USUARIO_ID: 10
             ID_ORIGEN_USUARIO: 1
     Catalogo:
@@ -1338,6 +1475,30 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_tipo_lote
+    ErrorLoteProducto:
+      description: |
+        El cuerpo no es válido, el lote no es final, la unidad no corresponde al tipo
+        o la cantidad no cumple la unidad entera.
+        `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_id_producto`,
+        `invalid_clave_producto`, `invalid_producto_referencia`, `invalid_cantidad`,
+        `invalid_id_unidad`, `invalid_tipo_lote` o `invalid_producto`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            cantidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_cantidad
+            unidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_unidad
     ErrorLoteReferencia:
       description: |
         El cuerpo no es válido, el lote o el tipo no existen, o la referencia queda vacía.
@@ -1692,6 +1853,24 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/LoteReferencia'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaLoteProducto:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoteProducto'
+    RespuestaLoteProductoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoteProducto'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaLoteLista:
@@ -2082,6 +2261,77 @@ components:
       description: |
         En el reemplazo, `DESCRIPCION` omitida se guarda como `null`.
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    LoteProducto:
+      type: object
+      required:
+        - ID
+        - ID_LOTE
+        - ID_PRODUCTO
+        - CLAVE_PRODUCTO
+        - CANTIDAD
+        - ID_UNIDAD
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_LOTE:
+          type: integer
+          minimum: 1
+          description: Referencia a un `LOTES` de categoría final.
+        ID_PRODUCTO:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Identificador externo del producto. Debe venir este campo, `CLAVE_PRODUCTO` o ambos.
+        CLAVE_PRODUCTO:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Clave externa del producto. Se recortan los espacios.
+        CANTIDAD:
+          type: number
+          exclusiveMinimum: 0
+          description: Cantidad medida. Si la unidad es entera, no puede llevar decimales.
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+          description: Unidad de medida permitida para el tipo del lote.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    LoteProductoEntrada:
+      type: object
+      required: [ID_LOTE, CANTIDAD, ID_UNIDAD]
+      properties:
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        ID_PRODUCTO:
+          type: integer
+          nullable: true
+          minimum: 1
+        CLAVE_PRODUCTO:
+          type: string
+          nullable: true
+          minLength: 1
+        CANTIDAD:
+          type: number
+          exclusiveMinimum: 0
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+      description: |
+        Debe venir `ID_PRODUCTO`, `CLAVE_PRODUCTO` o ambos.
+        En el reemplazo, `ID_PRODUCTO` o `CLAVE_PRODUCTO` omitidos se guardan como `null`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteTipo:
       type: object

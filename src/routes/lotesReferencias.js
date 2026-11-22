@@ -133,13 +133,33 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const page = paginationFromQuery(req.query);
-    const totalResult = await pool.query(
-      'SELECT COUNT(*)::int AS total FROM "LOTES_REFERENCIAS"',
-    );
-    const result = await pool.query(
-      `SELECT ${FIELDS} FROM "LOTES_REFERENCIAS" ORDER BY "ID" LIMIT $1 OFFSET $2`,
-      [page.items, page.offset],
-    );
+    let idLote = null;
+    if (req.query.id_lote !== undefined && req.query.id_lote !== '') {
+      if (!/^[1-9]\d*$/.test(String(req.query.id_lote))) {
+        throw httpError(400, 'invalid_id_lote');
+      }
+      idLote = Number(req.query.id_lote);
+    }
+
+    const totalResult = idLote === null
+      ? await pool.query('SELECT COUNT(*)::int AS total FROM "LOTES_REFERENCIAS"')
+      : await pool.query(
+        'SELECT COUNT(*)::int AS total FROM "LOTES_REFERENCIAS" WHERE "ID_LOTE" = $1',
+        [idLote],
+      );
+
+    const result = idLote === null
+      ? await pool.query(
+        `SELECT ${FIELDS} FROM "LOTES_REFERENCIAS" ORDER BY "ID" LIMIT $1 OFFSET $2`,
+        [page.items, page.offset],
+      )
+      : await pool.query(
+        `SELECT ${FIELDS} FROM "LOTES_REFERENCIAS"
+         WHERE "ID_LOTE" = $1
+         ORDER BY "ID" LIMIT $2 OFFSET $3`,
+        [idLote, page.items, page.offset],
+      );
+
     sendData(
       res,
       200,
