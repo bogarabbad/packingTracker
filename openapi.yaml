@@ -442,15 +442,22 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdTipo'
       responses:
         '200':
-          description: Relaciones ordenadas por `ID`.
+          description: Relaciones ordenadas por `ID`. Si viene `id_tipo`, solo ese tipo.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaLoteTipoUnidadLista'
         '400':
-          $ref: '#/components/responses/PaginacionInvalida'
+          description: |
+            Paginación inválida o `id_tipo` inválido.
+            `error.error` puede ser el de la paginación o `invalid_id_tipo`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     post:
@@ -1036,6 +1043,14 @@ components:
         type: integer
         minimum: 1
         default: 50
+    IdTipo:
+      name: id_tipo
+      in: query
+      required: false
+      description: Filtra por identificador de tipo de lote. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
   requestBodies:
     LoteTipo:
       required: true

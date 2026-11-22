@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tipos de lotes · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'lotes-tipos' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Tipos de lotes' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="lt-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo tipo',
+              variant: 'default',
+              size: 'md',
+              id: 'lt-btn-new'
+            }) %>
+          </section>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Tipos de lotes">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Final</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lt-tbody">
+                    <tr>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="lt-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="lt-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="lt-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="lt-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="lt-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lt-form-title" class="ui-dialog-title">Nuevo tipo</h2>
+      </header>
+      <form id="lt-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="lt-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="lt-codigo">Código</label>
+          <input class="ui-input" id="lt-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="lt-nombre">Nombre</label>
+          <input class="ui-input" id="lt-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="lt-es-final" name="ES_FINAL" type="checkbox" class="size-4 rounded border-input" />
+          <label class="ui-label" for="lt-es-final">Categoría final</label>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="lt-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="lt-activo">Activo</label>
+        </div>
+        <p id="lt-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="lt-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="lt-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="lt-detail-dialog" class="ui-dialog-panel ui-dialog-wide backdrop:bg-black/50" aria-labelledby="lt-detail-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lt-detail-title" class="ui-dialog-title">Detalle del tipo</h2>
+        <p id="lt-detail-subtitle" class="ui-dialog-description"></p>
+      </header>
+
+      <div class="mt-4 grid gap-4">
+        <div class="flex flex-wrap gap-2">
+          <span id="lt-detail-final" class="ui-badge ui-badge-outline"></span>
+          <span id="lt-detail-activo" class="ui-badge ui-badge-outline"></span>
+        </div>
+
+        <section id="lt-detail-unidades" class="grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Unidades de medida</h3>
+            <p id="lt-detail-unidades-status" class="text-sm text-muted-foreground"></p>
+          </div>
+
+          <form id="lt-detail-add-form" class="flex flex-wrap items-end gap-2">
+            <div class="flex min-w-[12rem] flex-1 flex-col gap-2">
+              <label class="ui-label" for="lt-detail-unidad">Agregar unidad</label>
+              <select class="ui-input" id="lt-detail-unidad" required></select>
+            </div>
+            <button type="submit" id="lt-detail-add" class="ui-btn ui-btn-default ui-btn-md">Agregar</button>
+          </form>
+          <p id="lt-detail-unidades-error" class="hidden text-sm text-destructive" role="alert"></p>
+
+          <div class="ui-table-wrap">
+            <table class="ui-table" aria-label="Unidades del tipo">
+              <thead>
+                <tr>
+                  <th scope="col">Código</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col" class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="lt-detail-unidades-tbody">
+                <tr>
+                  <td colspan="3" class="text-muted-foreground">Sin unidades.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p id="lt-detail-unidades-hint" class="hidden text-sm text-muted-foreground">
+          Solo las categorías finales pueden medir producto con unidades de medida.
+        </p>
+      </div>
+
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="lt-detail-close" class="ui-btn ui-btn-outline ui-btn-md">Cerrar</button>
+        <button type="button" id="lt-detail-edit" class="ui-btn ui-btn-default ui-btn-md">Editar tipo</button>
+      </footer>
+    </dialog>
+
+    <dialog id="lt-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="lt-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="lt-delete-title" class="ui-dialog-title">Eliminar tipo</h2>
+        <p class="ui-dialog-description" id="lt-delete-text">¿Eliminar este tipo de lote?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="lt-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="lt-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/lotes-tipos.js" defer></script>
+  </body>
+</html>

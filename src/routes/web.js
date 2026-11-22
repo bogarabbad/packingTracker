@@ -30,4 +30,8 @@ router.get('/catalogos/unidades-medida', (req, res) => {
   res.render('unidades-medida');
 });
 
+router.get('/catalogos/lotes-tipos', (req, res) => {
+  res.render('lotes-tipos');
+});
+
 module.exports = router;
