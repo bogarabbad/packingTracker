@@ -83,3 +83,8 @@ networks:
 ```
 
 El contrato de la API está en `openapi.yaml`. `GET /health` sirve para que el orquestador y los demás servicios comprueben que el contenedor está listo.
+
+## Autor
+
+- [LinkedIn](https://www.linkedin.com/in/bogarabbad/)
+- [GitHub](https://github.com/bogarabbad)

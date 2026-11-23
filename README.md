@@ -48,3 +48,8 @@ networks:
 ```
 
 El único contrato publicado hoy es `GET /health`, pensado para que el orquestador y los demás servicios comprueben que el contenedor está listo.
+
+## Autor
+
+- [LinkedIn](https://www.linkedin.com/in/bogarabbad/)
+- [GitHub](https://github.com/bogarabbad)
