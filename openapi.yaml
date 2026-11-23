@@ -13,7 +13,8 @@ info:
     Esta versión publica el estado del servicio, el CRUD de los catálogos
     `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS`, `UNIDADES` y `REFERENCIAS_TIPOS`,
     el CRUD de `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES`, el CRUD de `LOTES_REFERENCIAS`,
-    el CRUD de `LOTES_PRODUCTOS` y el CRUD de `UNIDADES_TRANSPORTE`.
+    el CRUD de `LOTES_PRODUCTOS`, el CRUD de `EXPEDICIONES`, el CRUD de
+    `EXPEDICIONES_LOTES` y el CRUD de `UNIDADES_TRANSPORTE`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -88,6 +89,20 @@ tags:
       Solo la tarima puede apuntar a la unidad de transporte.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
+  - name: Expediciones
+    description: |
+      Registro `EXPEDICIONES`.
+      Una unidad de transporte solo puede tener una expedición abierta
+      (`FECHA_CIERRE` nulo).
+      `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+      El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
+  - name: Embarques
+    description: |
+      Registro `EXPEDICIONES_LOTES`.
+      Relaciona un lote con una expedición.
+      Solo lotes sin `PADRE_ID` (sueltos) y que aún no estén embarcados.
+      Un lote solo puede pertenecer a una expedición.
+      No se agrega ni se quita en una expedición cerrada.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -193,6 +208,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
       responses:
         '200':
           $ref: '#/components/responses/CatalogoLista'
@@ -273,6 +290,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
       responses:
         '200':
           $ref: '#/components/responses/CatalogoLista'
@@ -353,9 +372,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/EsFinal'
       responses:
         '200':
-          description: Catálogo ordenado por `ID`.
+          description: Catálogo ordenado por `CREADO_EN` descendente.
           content:
             application/json:
               schema:
@@ -454,7 +476,7 @@ paths:
         - $ref: '#/components/parameters/IdTipo'
       responses:
         '200':
-          description: Relaciones ordenadas por `ID`. Si viene `id_tipo`, solo ese tipo.
+          description: Relaciones ordenadas por `CREADO_EN` descendente. Si viene `id_tipo`, solo ese tipo.
           content:
             application/json:
               schema:
@@ -556,6 +578,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
       responses:
         '200':
           $ref: '#/components/responses/CatalogoLista'
@@ -639,7 +663,7 @@ paths:
         - $ref: '#/components/parameters/IdLote'
       responses:
         '200':
-          description: Referencias ordenadas por `ID`. Si viene `id_lote`, solo ese lote.
+          description: Referencias ordenadas por `CREADO_EN` descendente. Si viene `id_lote`, solo ese lote.
           content:
             application/json:
               schema:
@@ -739,7 +763,7 @@ paths:
         - $ref: '#/components/parameters/IdLote'
       responses:
         '200':
-          description: Productos ordenados por `ID`. Si viene `id_lote`, solo ese lote.
+          description: Productos ordenados por `CREADO_EN` descendente. Si viene `id_lote`, solo ese lote.
           content:
             application/json:
               schema:
@@ -834,15 +858,30 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/PadreId'
+        - $ref: '#/components/parameters/IdTipo'
+        - $ref: '#/components/parameters/IdUnidad'
+        - $ref: '#/components/parameters/EsFinal'
+        - $ref: '#/components/parameters/Embarcable'
       responses:
         '200':
-          description: Lotes ordenados por `ID`.
+          description: |
+            Lotes ordenados por `CREADO_EN` descendente.
+            Acepta `padre_id`, `id_tipo`, `id_unidad`, `es_final` y `embarcable`.
+            `embarcable=true` deja solo lotes sin padre y no embarcados.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaLoteLista'
         '400':
-          $ref: '#/components/responses/PaginacionInvalida'
+          description: |
+            Paginación inválida o filtro inválido
+            (`padre_id`, `id_tipo`, `id_unidad`, `es_final`, `embarcable`).
+            `error.error` puede ser el de la paginación o `invalid_padre_id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     post:
@@ -925,6 +964,201 @@ paths:
           $ref: '#/components/responses/LoteEnUso'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /expediciones:
+    get:
+      tags: [Expediciones]
+      operationId: listExpediciones
+      summary: Lista las expediciones
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdUnidad'
+        - $ref: '#/components/parameters/Abierta'
+        - $ref: '#/components/parameters/Q'
+      responses:
+        '200':
+          description: Expediciones ordenadas por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicionLista'
+        '400':
+          description: |
+            Paginación inválida, `id_unidad` inválido o `abierta` inválido.
+            `error.error` puede ser el de la paginación, `invalid_id_unidad` o `invalid_abierta`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Expediciones]
+      operationId: createExpedicion
+      summary: Crea una expedición
+      description: |
+        Si `FECHA_CIERRE` se omite o va `null`, la expedición queda abierta.
+        No puede haber otra abierta para la misma unidad de transporte.
+      requestBody:
+        $ref: '#/components/requestBodies/Expedicion'
+      responses:
+        '201':
+          description: Expedición creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicion'
+        '400':
+          $ref: '#/components/responses/ErrorExpedicion'
+        '409':
+          $ref: '#/components/responses/UnidadExpedicionAbierta'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Expediciones]
+      operationId: getExpedicion
+      summary: Obtiene una expedición
+      responses:
+        '200':
+          description: Expedición.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Expediciones]
+      operationId: updateExpedicion
+      summary: Reemplaza una expedición
+      description: |
+        Reemplaza los datos editables. Si un dato opcional no viene, se guarda `null`.
+        `CREADO_EN` no cambia. `ACTUALIZADO_EN` pasa a ser el momento del reemplazo.
+        Poner `FECHA_CIERRE` cierra la expedición. Vaciarlo la reabre si la unidad no tiene otra abierta.
+      requestBody:
+        $ref: '#/components/requestBodies/Expedicion'
+      responses:
+        '200':
+          description: Expedición actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicion'
+        '400':
+          $ref: '#/components/responses/ErrorExpedicion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/UnidadExpedicionAbierta'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Expediciones]
+      operationId: deleteExpedicion
+      summary: Elimina una expedición
+      description: Responde `409` si tiene lotes embarcados.
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ExpedicionEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones-lotes:
+    get:
+      tags: [Embarques]
+      operationId: listExpedicionesLotes
+      summary: Lista los embarques de lotes
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdExpedicion'
+        - $ref: '#/components/parameters/IdLote'
+      responses:
+        '200':
+          description: Embarques ordenados por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicionLoteLista'
+        '400':
+          description: |
+            Paginación inválida, `id_expedicion` inválido o `id_lote` inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Embarques]
+      operationId: createExpedicionLote
+      summary: Embarca un lote en una expedición
+      description: |
+        El lote debe ser suelto (`PADRE_ID` nulo) y no estar embarcado.
+        La expedición debe estar abierta.
+      requestBody:
+        $ref: '#/components/requestBodies/ExpedicionLote'
+      responses:
+        '201':
+          description: Embarque creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicionLote'
+        '400':
+          $ref: '#/components/responses/ErrorEmbarque'
+        '409':
+          $ref: '#/components/responses/ConflictoEmbarque'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones-lotes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Embarques]
+      operationId: getExpedicionLote
+      summary: Obtiene un embarque
+      responses:
+        '200':
+          description: Embarque.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicionLote'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Embarques]
+      operationId: deleteExpedicionLote
+      summary: Quita un lote de una expedición
+      description: Responde `409` si la expedición está cerrada.
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ExpedicionCerrada'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /unidades-medida:
     get:
       tags: [Unidades de medida]
@@ -933,9 +1167,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/Entera'
       responses:
         '200':
-          description: Catálogo ordenado por `ID`.
+          description: Catálogo ordenado por `CREADO_EN` descendente.
           content:
             application/json:
               schema:
@@ -1031,9 +1268,13 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/IdTipo'
+        - $ref: '#/components/parameters/IdEstatus'
+        - $ref: '#/components/parameters/Activo'
       responses:
         '200':
-          description: Unidades ordenadas por `ID`.
+          description: Unidades ordenadas por `CREADO_EN` descendente.
           content:
             application/json:
               schema:
@@ -1173,6 +1414,90 @@ components:
       schema:
         type: string
         pattern: '^[1-9]\d*$'
+    PadreId:
+      name: padre_id
+      in: query
+      required: false
+      description: Filtra lotes hijos por identificador del lote padre. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    IdUnidad:
+      name: id_unidad
+      in: query
+      required: false
+      description: Filtra por identificador de unidad de transporte. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    Abierta:
+      name: abierta
+      in: query
+      required: false
+      description: |
+        Filtra por estado. `true` o `1` = sin `FECHA_CIERRE`.
+        `false` o `0` = con `FECHA_CIERRE`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
+    Q:
+      name: q
+      in: query
+      required: false
+      description: Texto libre para buscar. Máximo 100 caracteres.
+      schema:
+        type: string
+        maxLength: 100
+    Activo:
+      name: activo
+      in: query
+      required: false
+      description: Filtra por `ACTIVO`. `true`/`1` o `false`/`0`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
+    EsFinal:
+      name: es_final
+      in: query
+      required: false
+      description: Filtra por `ES_FINAL`. `true`/`1` o `false`/`0`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
+    Entera:
+      name: entera
+      in: query
+      required: false
+      description: Filtra por `ENTERA`. `true`/`1` o `false`/`0`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
+    Embarcable:
+      name: embarcable
+      in: query
+      required: false
+      description: |
+        `true`/`1` = sin `PADRE_ID` y aún no embarcado en ninguna expedición.
+        `false`/`0` = con padre o ya embarcado.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
+    IdExpedicion:
+      name: id_expedicion
+      in: query
+      required: false
+      description: Filtra por identificador de expedición. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    IdEstatus:
+      name: id_estatus
+      in: query
+      required: false
+      description: Filtra por identificador de estatus. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
   requestBodies:
     LoteTipo:
       required: true
@@ -1228,6 +1553,40 @@ components:
             ID_UNIDAD: null
             USUARIO_ID: null
             ID_ORIGEN_USUARIO: null
+    Expedicion:
+      required: true
+      description: |
+        `FECHA_CIERRE`, `ID_UBICACION_SALIDA`, `CLAVE_UBICACION_SALIDA`,
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExpedicionEntrada'
+          example:
+            ID_UNIDAD: 1
+            FECHA_CIERRE: null
+            ID_UBICACION_SALIDA: null
+            CLAVE_UBICACION_SALIDA: null
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
+    ExpedicionLote:
+      required: true
+      description: |
+        `EMBARCADO_EN` omitido usa `now()`.
+        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExpedicionLoteEntrada'
+          example:
+            ID_EXPEDICION: 1
+            ID_LOTE: 1
+            EMBARCADO_EN: null
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
     LoteReferencia:
       required: true
       description: |
@@ -1312,7 +1671,7 @@ components:
                 error:
                   error: token_expired
     CatalogoLista:
-      description: Catálogo ordenado por `ID`, recortado a la página pedida.
+      description: Catálogo ordenado por `CREADO_EN` descendente, recortado a la página pedida.
       content:
         application/json:
           schema:
@@ -1532,6 +1891,7 @@ components:
         `invalid_usuario_origen`, `invalid_tipo_lote` o `invalid_lote`.
         `invalid_id_unidad` también responde cuando una categoría final trae unidad de transporte
         o cuando esa unidad no existe.
+        `invalid_padre_id` también responde si el lote ya está embarcado y se le asigna padre.
         `invalid_lote` responde cuando una categoría final intenta contener otro lote.
       content:
         application/json:
@@ -1567,6 +1927,108 @@ components:
             _metadata: {}
             error:
               error: record_in_use
+    ErrorExpedicion:
+      description: |
+        El cuerpo no cumple las reglas de la expedición.
+        `error.error` puede ser `invalid_body`, `invalid_id_unidad`, `invalid_fecha_cierre`,
+        `invalid_id_ubicacion_salida`, `invalid_clave_ubicacion_salida`,
+        `invalid_usuario_id`, `invalid_id_origen_usuario`, `invalid_usuario_origen`
+        o `invalid_expedicion`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            unidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_unidad
+            cierre:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_fecha_cierre
+    UnidadExpedicionAbierta:
+      description: La unidad de transporte ya tiene una expedición abierta.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: unidad_ya_abierta
+    ExpedicionEnUso:
+      description: La expedición tiene lotes embarcados.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: record_in_use
+    ErrorEmbarque:
+      description: |
+        El cuerpo no cumple las reglas del embarque.
+        `error.error` puede ser `invalid_body`, `invalid_id_expedicion`, `invalid_id_lote`,
+        `invalid_embarcado_en`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
+        `invalid_usuario_origen` o `invalid_embarque`.
+        `invalid_id_lote` también responde si el lote tiene padre.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            lote:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_lote
+            expedicion:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_expedicion
+    ConflictoEmbarque:
+      description: |
+        `lote_ya_embarcado` si el lote ya está en otra expedición.
+        `expedicion_cerrada` si la expedición ya tiene `FECHA_CIERRE`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            lote:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: lote_ya_embarcado
+            cerrada:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: expedicion_cerrada
+    ExpedicionCerrada:
+      description: La expedición está cerrada y conserva sus lotes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: expedicion_cerrada
     ErrorRelacionLote:
       description: |
         El cuerpo no es válido, el tipo o la unidad no existen, o el tipo no es final.
@@ -1833,6 +2295,42 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/Lote'
+    RespuestaExpedicion:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Expedicion'
+    RespuestaExpedicionLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Expedicion'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaExpedicionLote:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ExpedicionLote'
+    RespuestaExpedicionLoteLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExpedicionLote'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaLoteReferencia:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -2146,6 +2644,163 @@ components:
           format: date-time
           readOnly: true
           description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
+    Expedicion:
+      type: object
+      required:
+        - ID
+        - ID_UNIDAD
+        - FECHA_CIERRE
+        - ID_UBICACION_SALIDA
+        - CLAVE_UBICACION_SALIDA
+        - USUARIO_ID
+        - ID_ORIGEN_USUARIO
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+          description: Referencia a `UNIDADES_TRANSPORTE`.
+        FECHA_CIERRE:
+          type: string
+          format: date-time
+          nullable: true
+          description: Nulo mientras la expedición está abierta. Debe ser posterior o igual a `CREADO_EN`.
+        ID_UBICACION_SALIDA:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Identificador externo de la ubicación de salida.
+        CLAVE_UBICACION_SALIDA:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Clave externa de la ubicación de salida.
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            Identificador del usuario. Con origen `1` apunta a `USUARIOS`.
+            Con otro origen es una referencia externa.
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Procedencia de `USUARIO_ID`. El valor `1` es interno.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento en que se creó el registro. Lo asigna el servicio.
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Momento de la última modificación. Lo mueve el servicio en cada cambio.
+    ExpedicionEntrada:
+      type: object
+      required: [ID_UNIDAD]
+      properties:
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+        FECHA_CIERRE:
+          type: string
+          format: date-time
+          nullable: true
+        ID_UBICACION_SALIDA:
+          type: integer
+          nullable: true
+          minimum: 1
+        CLAVE_UBICACION_SALIDA:
+          type: string
+          nullable: true
+          minLength: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+      description: |
+        En el reemplazo, los opcionales omitidos se guardan como `null`.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    ExpedicionLote:
+      type: object
+      required:
+        - ID
+        - ID_EXPEDICION
+        - ID_LOTE
+        - EMBARCADO_EN
+        - USUARIO_ID
+        - ID_ORIGEN_USUARIO
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_EXPEDICION:
+          type: integer
+          minimum: 1
+          description: Referencia a `EXPEDICIONES`.
+        ID_LOTE:
+          type: integer
+          minimum: 1
+          description: Referencia a `LOTES`. Debe ser suelto y no estar embarcado.
+        EMBARCADO_EN:
+          type: string
+          format: date-time
+          description: Momento del embarque. Por defecto `now()`.
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    ExpedicionLoteEntrada:
+      type: object
+      required: [ID_EXPEDICION, ID_LOTE]
+      properties:
+        ID_EXPEDICION:
+          type: integer
+          minimum: 1
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        EMBARCADO_EN:
+          type: string
+          format: date-time
+          nullable: true
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+      description: |
+        `EMBARCADO_EN` omitido o `null` usa el valor por defecto de la base.
+        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     LoteEntrada:
       type: object
       required: [ID_TIPO]

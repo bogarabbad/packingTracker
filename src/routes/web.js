@@ -42,4 +42,8 @@ router.get('/operacion/lotes', (req, res) => {
   res.render('lotes');
 });
 
+router.get('/operacion/expediciones', (req, res) => {
+  res.render('expediciones');
+});
+
 module.exports = router;

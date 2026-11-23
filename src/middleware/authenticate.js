@@ -15,6 +15,7 @@ const PUBLIC_PATHS = new Set([
   '/catalogos/lotes-tipos',
   '/catalogos/referencias-tipos',
   '/operacion/lotes',
+  '/operacion/expediciones',
 ]);
 
 function authenticate(req, res, next) {

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     detailTipo: null,
     unidades: new Map(),
     relaciones: [],
+    filters: { q: '', activo: '', es_final: '' },
   };
 
   const statusNode = document.getElementById('lt-status');
@@ -242,11 +243,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.unidades = new Map(rows.map((row) => [row.ID, row]));
   }
 
+  function buildListUrl() {
+    const params = new URLSearchParams({
+      page: String(state.page),
+      items: String(state.items),
+    });
+    if (state.filters.q) {
+      params.set('q', state.filters.q);
+    }
+    if (state.filters.activo) {
+      params.set('activo', state.filters.activo);
+    }
+    if (state.filters.es_final) {
+      params.set('es_final', state.filters.es_final);
+    }
+    return `/lotes-tipos?${params}`;
+  }
+
+  function readFilters() {
+    state.filters.q = document.getElementById('lt-filter-q').value.trim();
+    state.filters.activo = document.getElementById('lt-filter-activo').value;
+    state.filters.es_final = document.getElementById('lt-filter-final').value;
+  }
+
   async function loadList() {
     statusNode.textContent = 'Cargando…';
-    const result = await window.PackingApi.request(
-      `/lotes-tipos?page=${state.page}&items=${state.items}`,
-    );
+    const result = await window.PackingApi.request(buildListUrl());
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
@@ -267,6 +289,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('lt-btn-new').addEventListener('click', () => openForm(null));
   document.getElementById('lt-form-cancel').addEventListener('click', closeForm);
+  document.getElementById('lt-filters').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readFilters();
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('lt-filters-clear').addEventListener('click', async () => {
+    document.getElementById('lt-filters').reset();
+    state.filters = { q: '', activo: '', es_final: '' };
+    state.page = 1;
+    await loadList();
+  });
   document.getElementById('lt-detail-close').addEventListener('click', closeDetail);
   document.getElementById('lt-detail-edit').addEventListener('click', () => {
     const tipo = state.detailTipo;

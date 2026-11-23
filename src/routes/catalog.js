@@ -3,6 +3,11 @@ const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
+const {
+  parseOptionalBoolean,
+  parseOptionalQueryText,
+  likeContains,
+} = require('../listFilters');
 
 const TABLES = new Set([
   'UNIDADES_ESTATUS',
@@ -136,10 +141,46 @@ function createCatalogRouter(table) {
   router.get('/', async (req, res) => {
     try {
       const page = paginationFromQuery(req.query);
-      const totalResult = await pool.query(`SELECT COUNT(*)::int AS total FROM "${table}"`);
+      const filters = [];
+      const params = [];
+
+      const q = parseOptionalQueryText(req.query.q, 'invalid_q');
+      if (q !== null) {
+        params.push(likeContains(q));
+        filters.push(
+          `("CODIGO" ILIKE $${params.length} ESCAPE '\\' OR "NOMBRE" ILIKE $${params.length} ESCAPE '\\')`,
+        );
+      }
+
+      const activo = parseOptionalBoolean(req.query.activo, 'invalid_activo');
+      if (activo !== null) {
+        params.push(activo);
+        filters.push(`"ACTIVO" = $${params.length}`);
+      }
+
+      if (extra) {
+        const flag = parseOptionalBoolean(
+          req.query[extra.column.toLowerCase()],
+          extra.invalid,
+        );
+        if (flag !== null) {
+          params.push(flag);
+          filters.push(`"${extra.column}" = $${params.length}`);
+        }
+      }
+
+      const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+      const totalResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM "${table}" ${where}`,
+        params,
+      );
+      const listParams = [...params, page.items, page.offset];
       const result = await pool.query(
-        `SELECT ${fields} FROM "${table}" ORDER BY "ID" LIMIT $1 OFFSET $2`,
-        [page.items, page.offset],
+        `SELECT ${fields} FROM "${table}"
+         ${where}
+         ORDER BY "CREADO_EN" DESC, "ID" DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        listParams,
       );
       sendData(
         res,

@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     items: 20,
     total: 0,
     deleteId: null,
+    filters: { q: '', activo: '' },
   };
 
   const statusNode = document.getElementById('ue-status');
@@ -108,11 +109,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     nextBtn.disabled = state.page >= pages || state.total === 0;
   }
 
+  function buildListUrl() {
+    const params = new URLSearchParams({
+      page: String(state.page),
+      items: String(state.items),
+    });
+    if (state.filters.q) {
+      params.set('q', state.filters.q);
+    }
+    if (state.filters.activo) {
+      params.set('activo', state.filters.activo);
+    }
+    return `/unidades-estatus?${params}`;
+  }
+
+  function readFilters() {
+    state.filters.q = document.getElementById('ue-filter-q').value.trim();
+    state.filters.activo = document.getElementById('ue-filter-activo').value;
+  }
+
   async function loadList() {
     statusNode.textContent = 'Cargando…';
-    const result = await window.PackingApi.request(
-      `/unidades-estatus?page=${state.page}&items=${state.items}`,
-    );
+    const result = await window.PackingApi.request(buildListUrl());
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
@@ -133,6 +151,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('ue-btn-new').addEventListener('click', () => openForm(null));
   document.getElementById('ue-form-cancel').addEventListener('click', closeForm);
+  document.getElementById('ue-filters').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readFilters();
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('ue-filters-clear').addEventListener('click', async () => {
+    document.getElementById('ue-filters').reset();
+    state.filters = { q: '', activo: '' };
+    state.page = 1;
+    await loadList();
+  });
   document.getElementById('ue-delete-cancel').addEventListener('click', () => {
     state.deleteId = null;
     if (deleteDialog.open) {

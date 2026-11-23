@@ -22,6 +22,33 @@
             }) %>
           </section>
 
+          <form id="um-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="um-filter-q">Buscar</label>
+              <input class="ui-input" id="um-filter-q" name="q" placeholder="Código o nombre" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="um-filter-activo">Activo</label>
+              <select class="ui-input" id="um-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="um-filter-entera">Entera</label>
+              <select class="ui-input" id="um-filter-entera" name="entera">
+                <option value="">Todas</option>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="um-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
           <%- include('partials/card', {
             body: `
               <div class="ui-table-wrap">

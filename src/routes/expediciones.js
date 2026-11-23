@@ -1,0 +1,333 @@
+const express = require('express');
+const { pool } = require('../db');
+const { httpError } = require('../httpError');
+const { sendData } = require('../respond');
+const { paginationFromQuery, paginationMetadata } = require('../pagination');
+const {
+  parseOptionalBoolean,
+  parseOptionalPositiveInt,
+  parseOptionalQueryText,
+  likeContains,
+} = require('../listFilters');
+
+const FIELDS = [
+  'ID',
+  'ID_UNIDAD',
+  'FECHA_CIERRE',
+  'ID_UBICACION_SALIDA',
+  'CLAVE_UBICACION_SALIDA',
+  'USUARIO_ID',
+  'ID_ORIGEN_USUARIO',
+  'CREADO_EN',
+  'ACTUALIZADO_EN',
+].map((name) => `"${name}"`).join(', ');
+
+function parseId(value) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw httpError(400, 'invalid_id');
+  }
+
+  return Number(value);
+}
+
+function requiredInteger(value, error) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw httpError(400, error);
+  }
+
+  return value;
+}
+
+function optionalInteger(value, error) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return requiredInteger(value, error);
+}
+
+function optionalText(value, error) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw httpError(400, error);
+  }
+
+  return value.trim();
+}
+
+function optionalTimestamptz(value, error) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw httpError(400, error);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw httpError(400, error);
+  }
+
+  return date.toISOString();
+}
+
+function parseBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw httpError(400, 'invalid_body');
+  }
+
+  const usuarioId = optionalInteger(body.USUARIO_ID, 'invalid_usuario_id');
+  const idOrigenUsuario = optionalInteger(
+    body.ID_ORIGEN_USUARIO,
+    'invalid_id_origen_usuario',
+  );
+  if ((usuarioId === null) !== (idOrigenUsuario === null)) {
+    throw httpError(400, 'invalid_usuario_origen');
+  }
+
+  return {
+    ID_UNIDAD: requiredInteger(body.ID_UNIDAD, 'invalid_id_unidad'),
+    FECHA_CIERRE: optionalTimestamptz(body.FECHA_CIERRE, 'invalid_fecha_cierre'),
+    ID_UBICACION_SALIDA: optionalInteger(
+      body.ID_UBICACION_SALIDA,
+      'invalid_id_ubicacion_salida',
+    ),
+    CLAVE_UBICACION_SALIDA: optionalText(
+      body.CLAVE_UBICACION_SALIDA,
+      'invalid_clave_ubicacion_salida',
+    ),
+    USUARIO_ID: usuarioId,
+    ID_ORIGEN_USUARIO: idOrigenUsuario,
+  };
+}
+
+function mapNumber(value) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
+function mapRow(row) {
+  return {
+    ID: Number(row.ID),
+    ID_UNIDAD: Number(row.ID_UNIDAD),
+    FECHA_CIERRE: row.FECHA_CIERRE,
+    ID_UBICACION_SALIDA: mapNumber(row.ID_UBICACION_SALIDA),
+    CLAVE_UBICACION_SALIDA: row.CLAVE_UBICACION_SALIDA,
+    USUARIO_ID: mapNumber(row.USUARIO_ID),
+    ID_ORIGEN_USUARIO: mapNumber(row.ID_ORIGEN_USUARIO),
+    CREADO_EN: row.CREADO_EN,
+    ACTUALIZADO_EN: row.ACTUALIZADO_EN,
+  };
+}
+
+function translate(err) {
+  if (err.publicError) {
+    throw err;
+  }
+
+  if (err.code === '23505') {
+    if (err.constraint === 'EXPEDICIONES_UNIDAD_ABIERTA_UQ') {
+      throw httpError(409, 'unidad_ya_abierta');
+    }
+    throw httpError(409, 'duplicate');
+  }
+
+  if (err.code === '23503') {
+    if (err.constraint === 'EXPEDICIONES_ID_UNIDAD_FK') {
+      throw httpError(400, 'invalid_id_unidad');
+    }
+    if (err.constraint === 'EXPEDICIONES_ID_ORIGEN_USUARIO_FK') {
+      throw httpError(400, 'invalid_id_origen_usuario');
+    }
+    const message = typeof err.message === 'string' ? err.message : '';
+    if (message.includes('usuario interno')) {
+      throw httpError(400, 'invalid_usuario_id');
+    }
+    throw httpError(400, 'invalid_id_unidad');
+  }
+
+  if (err.code === '23514') {
+    if (
+      err.constraint === 'EXPEDICIONES_USUARIO_ID_CHK'
+      || err.constraint === 'EXPEDICIONES_USUARIO_ORIGEN_CHK'
+    ) {
+      throw httpError(
+        400,
+        err.constraint === 'EXPEDICIONES_USUARIO_ORIGEN_CHK'
+          ? 'invalid_usuario_origen'
+          : 'invalid_usuario_id',
+      );
+    }
+    if (err.constraint === 'EXPEDICIONES_FECHA_CIERRE_CHK') {
+      throw httpError(400, 'invalid_fecha_cierre');
+    }
+    if (err.constraint === 'EXPEDICIONES_ID_UBICACION_SALIDA_CHK') {
+      throw httpError(400, 'invalid_id_ubicacion_salida');
+    }
+    if (err.constraint === 'EXPEDICIONES_CLAVE_UBICACION_SALIDA_CHK') {
+      throw httpError(400, 'invalid_clave_ubicacion_salida');
+    }
+
+    const message = typeof err.message === 'string' ? err.message : '';
+    if (message.includes('origen deben ir')) {
+      throw httpError(400, 'invalid_usuario_origen');
+    }
+
+    throw httpError(400, 'invalid_expedicion');
+  }
+
+  throw err;
+}
+
+const router = express.Router();
+
+router.get('/', async (req, res) => {
+  try {
+    const page = paginationFromQuery(req.query);
+    const filters = [];
+    const params = [];
+
+    const idUnidad = parseOptionalPositiveInt(req.query.id_unidad, 'invalid_id_unidad');
+    if (idUnidad !== null) {
+      params.push(idUnidad);
+      filters.push(`"ID_UNIDAD" = $${params.length}`);
+    }
+
+    const abierta = parseOptionalBoolean(req.query.abierta, 'invalid_abierta');
+    if (abierta === true) {
+      filters.push('"FECHA_CIERRE" IS NULL');
+    } else if (abierta === false) {
+      filters.push('"FECHA_CIERRE" IS NOT NULL');
+    }
+
+    const q = parseOptionalQueryText(req.query.q, 'invalid_q');
+    if (q !== null) {
+      params.push(likeContains(q));
+      filters.push(
+        `COALESCE("CLAVE_UBICACION_SALIDA", '') ILIKE $${params.length} ESCAPE '\\'`,
+      );
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const totalResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM "EXPEDICIONES" ${where}`,
+      params,
+    );
+    const listParams = [...params, page.items, page.offset];
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "EXPEDICIONES"
+       ${where}
+       ORDER BY "CREADO_EN" DESC, "ID" DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      listParams,
+    );
+    sendData(
+      res,
+      200,
+      result.rows.map(mapRow),
+      paginationMetadata(page.page, page.items, totalResult.rows[0].total),
+    );
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "EXPEDICIONES" WHERE "ID" = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.post('/', async (req, res) => {
+  const record = parseBody(req.body);
+  try {
+    const result = await pool.query(
+      `INSERT INTO "EXPEDICIONES" (
+         "ID_UNIDAD", "FECHA_CIERRE", "ID_UBICACION_SALIDA",
+         "CLAVE_UBICACION_SALIDA", "USUARIO_ID", "ID_ORIGEN_USUARIO"
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING ${FIELDS}`,
+      [
+        record.ID_UNIDAD,
+        record.FECHA_CIERRE,
+        record.ID_UBICACION_SALIDA,
+        record.CLAVE_UBICACION_SALIDA,
+        record.USUARIO_ID,
+        record.ID_ORIGEN_USUARIO,
+      ],
+    );
+    sendData(res, 201, mapRow(result.rows[0]));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  const record = parseBody(req.body);
+  try {
+    const result = await pool.query(
+      `UPDATE "EXPEDICIONES"
+       SET "ID_UNIDAD" = $1,
+           "FECHA_CIERRE" = $2,
+           "ID_UBICACION_SALIDA" = $3,
+           "CLAVE_UBICACION_SALIDA" = $4,
+           "USUARIO_ID" = $5,
+           "ID_ORIGEN_USUARIO" = $6
+       WHERE "ID" = $7
+       RETURNING ${FIELDS}`,
+      [
+        record.ID_UNIDAD,
+        record.FECHA_CIERRE,
+        record.ID_UBICACION_SALIDA,
+        record.CLAVE_UBICACION_SALIDA,
+        record.USUARIO_ID,
+        record.ID_ORIGEN_USUARIO,
+        id,
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const result = await pool.query(
+      `DELETE FROM "EXPEDICIONES" WHERE "ID" = $1 RETURNING "ID"`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, null);
+  } catch (err) {
+    if (err.code === '23503') {
+      throw httpError(409, 'record_in_use');
+    }
+    translate(err);
+  }
+});
+
+module.exports = router;

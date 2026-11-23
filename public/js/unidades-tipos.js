@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     items: 20,
     total: 0,
     deleteId: null,
+    filters: { q: '', activo: '' },
   };
 
   const statusNode = document.getElementById('uti-status');
@@ -108,11 +109,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     nextBtn.disabled = state.page >= pages || state.total === 0;
   }
 
+  function buildListUrl() {
+    const params = new URLSearchParams({
+      page: String(state.page),
+      items: String(state.items),
+    });
+    if (state.filters.q) {
+      params.set('q', state.filters.q);
+    }
+    if (state.filters.activo) {
+      params.set('activo', state.filters.activo);
+    }
+    return `/unidades-tipos?${params}`;
+  }
+
+  function readFilters() {
+    state.filters.q = document.getElementById('uti-filter-q').value.trim();
+    state.filters.activo = document.getElementById('uti-filter-activo').value;
+  }
+
   async function loadList() {
     statusNode.textContent = 'Cargando…';
-    const result = await window.PackingApi.request(
-      `/unidades-tipos?page=${state.page}&items=${state.items}`,
-    );
+    const result = await window.PackingApi.request(buildListUrl());
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
@@ -133,6 +151,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('uti-btn-new').addEventListener('click', () => openForm(null));
   document.getElementById('uti-form-cancel').addEventListener('click', closeForm);
+  document.getElementById('uti-filters').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readFilters();
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('uti-filters-clear').addEventListener('click', async () => {
+    document.getElementById('uti-filters').reset();
+    state.filters = { q: '', activo: '' };
+    state.page = 1;
+    await loadList();
+  });
   document.getElementById('uti-delete-cancel').addEventListener('click', () => {
     state.deleteId = null;
     if (deleteDialog.open) {

@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     total: 0,
     deleteId: null,
     detailLote: null,
+    formOptions: null,
     tipos: new Map(),
     refTipos: new Map(),
     unidadesMedida: new Map(),
@@ -16,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     lotesCache: new Map(),
     referencias: [],
     productos: [],
+    hijos: [],
+    filters: { id_tipo: '', es_final: '', id_unidad: '', padre_id: '' },
   };
 
   const statusNode = document.getElementById('lo-status');
@@ -33,9 +36,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const padreSelect = document.getElementById('lo-padre-id');
   const unidadSelect = document.getElementById('lo-id-unidad');
   const padreWrap = document.getElementById('lo-padre-wrap');
+  const padreHint = document.getElementById('lo-padre-hint');
   const unidadWrap = document.getElementById('lo-unidad-wrap');
   const prodSection = document.getElementById('lo-prod-section');
   const prodHint = document.getElementById('lo-prod-hint');
+  const hijosSection = document.getElementById('lo-hijos-section');
+  const hijosTbody = document.getElementById('lo-hijos-tbody');
+  const hijosStatus = document.getElementById('lo-hijos-status');
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -49,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function mapError(code) {
     const messages = {
       invalid_id_tipo: 'Tipo inválido.',
-      invalid_padre_id: 'Lote padre inválido.',
+      invalid_padre_id: 'Lote padre inválido o el lote ya está embarcado.',
       invalid_id_unidad: 'Unidad inválida.',
       invalid_tipo_lote: 'El lote no cumple las reglas de su tipo.',
       invalid_lote: 'Datos de lote inválidos.',
@@ -127,24 +134,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function syncFormByTipo() {
     const final = tipoEsFinal(tipoSelect.value);
+    const lockedPadre = state.formOptions?.padreId != null;
     padreWrap.classList.toggle('hidden', !final);
+    padreHint.classList.toggle('hidden', !final || lockedPadre);
     unidadWrap.classList.toggle('hidden', final);
     if (!final) {
       padreSelect.value = '';
     } else {
       unidadSelect.value = '';
+      if (lockedPadre) {
+        padreSelect.value = String(state.formOptions.padreId);
+      }
     }
   }
 
-  function openForm(row) {
+  function openForm(row, options = {}) {
     showFormError('');
     form.reset();
+    state.formOptions = {
+      padreId: options.padreId ?? null,
+      onlyFinalTipos: Boolean(options.onlyFinalTipos),
+      returnToPadreId: options.returnToPadreId ?? null,
+    };
     document.getElementById('lo-id').value = row ? String(row.ID) : '';
-    formTitle.textContent = row ? 'Editar lote' : 'Nuevo lote';
+    const creatingChild = !row && state.formOptions.padreId != null;
+    formTitle.textContent = row
+      ? 'Editar lote'
+      : (creatingChild ? `Nuevo hijo de #${state.formOptions.padreId}` : 'Nuevo lote');
 
+    const tiposList = state.formOptions.onlyFinalTipos
+      ? [...state.tipos.values()].filter((tipo) => tipo.ES_FINAL)
+      : [...state.tipos.values()];
     fillSelect(
       tipoSelect,
-      [...state.tipos.values()],
+      tiposList,
       'Selecciona un tipo',
       (tipo) => `${tipo.CODIGO} · ${tipo.NOMBRE}`,
     );
@@ -155,13 +178,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       return !tipoEsFinal(lote.ID_TIPO);
     });
+    if (
+      state.formOptions.padreId != null
+      && !padres.some((lote) => lote.ID === state.formOptions.padreId)
+    ) {
+      const cached = state.lotesCache.get(state.formOptions.padreId);
+      if (cached) {
+        padres.unshift(cached);
+      } else {
+        padres.unshift({ ID: state.formOptions.padreId, ID_TIPO: null });
+      }
+    }
     fillSelect(
       padreSelect,
       padres,
       'Sin padre',
       (lote) => {
-        const tipo = state.tipos.get(lote.ID_TIPO);
-        return `#${lote.ID} · ${tipo ? tipo.NOMBRE : lote.ID_TIPO}`;
+        const tipo = lote.ID_TIPO == null ? null : state.tipos.get(lote.ID_TIPO);
+        return `#${lote.ID} · ${tipo ? tipo.NOMBRE : 'lote'}`;
       },
     );
 
@@ -177,16 +211,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       syncFormByTipo();
       padreSelect.value = row.PADRE_ID == null ? '' : String(row.PADRE_ID);
       unidadSelect.value = row.ID_UNIDAD == null ? '' : String(row.ID_UNIDAD);
+    } else if (creatingChild) {
+      const firstFinal = tiposList[0];
+      if (firstFinal) {
+        tipoSelect.value = String(firstFinal.ID);
+      }
+      syncFormByTipo();
+      padreSelect.value = String(state.formOptions.padreId);
+      padreSelect.disabled = true;
     } else {
       syncFormByTipo();
+      padreSelect.disabled = false;
     }
 
     formDialog.showModal();
   }
 
-  function closeForm() {
+  async function closeForm({ reopenPadre = false } = {}) {
+    const returnToPadreId = reopenPadre
+      ? (state.formOptions?.returnToPadreId ?? null)
+      : null;
+    state.formOptions = null;
+    padreSelect.disabled = false;
+    tipoSelect.disabled = false;
     if (formDialog.open) {
       formDialog.close();
+    }
+    if (returnToPadreId != null) {
+      const padreResult = await window.PackingApi.request(`/lotes/${returnToPadreId}`);
+      if (padreResult.ok) {
+        state.lotesCache.set(padreResult.data.ID, padreResult.data);
+        await openDetail(padreResult.data);
+      }
     }
   }
 
@@ -194,9 +250,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.detailLote = null;
     state.referencias = [];
     state.productos = [];
+    state.hijos = [];
     if (detailDialog.open) {
       detailDialog.close();
     }
+  }
+
+  function renderHijos() {
+    const rows = state.hijos;
+    hijosStatus.textContent = `${rows.length} hijo(s)`;
+    if (!rows.length) {
+      hijosTbody.innerHTML =
+        '<tr><td colspan="3" class="text-muted-foreground">Sin hijos.</td></tr>';
+      return;
+    }
+    hijosTbody.innerHTML = rows.map((row) => {
+      const tipo = state.tipos.get(row.ID_TIPO);
+      return `
+        <tr data-id="${row.ID}">
+          <td>${row.ID}</td>
+          <td>${escapeHtml(tipo ? tipo.NOMBRE : row.ID_TIPO)}</td>
+          <td class="text-right">
+            <button type="button" class="ui-btn ui-btn-outline ui-btn-sm" data-action="open-hijo">
+              Abrir
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 
   function renderRows(rows) {
@@ -312,11 +393,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadDetailChildren(lote) {
     showRefError('');
     showProdError('');
-    const [refs, prods, medidas] = await Promise.all([
+    const esFinal = tipoEsFinal(lote.ID_TIPO);
+    const requests = [
       window.PackingApi.request(`/lotes-referencias?id_lote=${lote.ID}&items=100`),
       window.PackingApi.request(`/lotes-productos?id_lote=${lote.ID}&items=100`),
       window.PackingApi.request(`/lotes-tipos-unidades?id_tipo=${lote.ID_TIPO}&items=100`),
-    ]);
+    ];
+    if (!esFinal) {
+      requests.push(
+        window.PackingApi.request(`/lotes?padre_id=${lote.ID}&items=100`),
+      );
+    }
+
+    const [refs, prods, medidas, hijos] = await Promise.all(requests);
 
     if (!refs.ok) {
       window.PackingToast.toast(mapError(refs.error), 'error');
@@ -325,11 +414,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderReferencias();
     }
 
-    const esFinal = tipoEsFinal(lote.ID_TIPO);
     prodSection.classList.toggle('hidden', !esFinal);
     prodHint.classList.toggle('hidden', esFinal);
+    hijosSection.classList.toggle('hidden', esFinal);
 
     if (esFinal) {
+      state.hijos = [];
       const relaciones = medidas.ok && Array.isArray(medidas.data) ? medidas.data : [];
       const unidades = relaciones
         .map((rel) => state.unidadesMedida.get(rel.ID_UNIDAD))
@@ -342,6 +432,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.productos = Array.isArray(prods.data) ? prods.data : [];
         renderProductos();
       }
+    } else {
+      state.productos = [];
+      if (!hijos.ok) {
+        window.PackingToast.toast(mapError(hijos.error), 'error');
+        state.hijos = [];
+      } else {
+        state.hijos = Array.isArray(hijos.data) ? hijos.data : [];
+        state.hijos.forEach((row) => state.lotesCache.set(row.ID, row));
+      }
+      renderHijos();
     }
   }
 
@@ -373,7 +473,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('lo-ref-form').reset();
     document.getElementById('lo-prod-form').reset();
 
-    detailDialog.showModal();
+    if (!detailDialog.open) {
+      detailDialog.showModal();
+    }
     await loadDetailChildren(lote);
   }
 
@@ -395,13 +497,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.unidadesMedida = new Map((unidades.data || []).map((row) => [row.ID, row]));
     state.unidadesTransporte = new Map((transporte.data || []).map((row) => [row.ID, row]));
     state.lotesCache = new Map((lotes.data || []).map((row) => [row.ID, row]));
+
+    fillSelect(
+      document.getElementById('lo-filter-tipo'),
+      [...state.tipos.values()],
+      'Todos',
+      (tipo) => `${tipo.CODIGO} · ${tipo.NOMBRE}`,
+    );
+    fillSelect(
+      document.getElementById('lo-filter-unidad'),
+      [...state.unidadesTransporte.values()],
+      'Todas',
+      (unidad) => `${unidad.CODIGO} · ${unidad.PLACAS}`,
+    );
+    const padres = [...state.lotesCache.values()].filter((lote) => !tipoEsFinal(lote.ID_TIPO));
+    fillSelect(
+      document.getElementById('lo-filter-padre'),
+      padres,
+      'Todos',
+      (lote) => {
+        const tipo = state.tipos.get(lote.ID_TIPO);
+        return `#${lote.ID} · ${tipo ? tipo.NOMBRE : lote.ID_TIPO}`;
+      },
+    );
+  }
+
+  function buildListUrl() {
+    const params = new URLSearchParams({
+      page: String(state.page),
+      items: String(state.items),
+    });
+    if (state.filters.id_tipo) {
+      params.set('id_tipo', state.filters.id_tipo);
+    }
+    if (state.filters.es_final) {
+      params.set('es_final', state.filters.es_final);
+    }
+    if (state.filters.id_unidad) {
+      params.set('id_unidad', state.filters.id_unidad);
+    }
+    if (state.filters.padre_id) {
+      params.set('padre_id', state.filters.padre_id);
+    }
+    return `/lotes?${params}`;
+  }
+
+  function readFilters() {
+    state.filters.id_tipo = document.getElementById('lo-filter-tipo').value;
+    state.filters.es_final = document.getElementById('lo-filter-final').value;
+    state.filters.id_unidad = document.getElementById('lo-filter-unidad').value;
+    state.filters.padre_id = document.getElementById('lo-filter-padre').value;
   }
 
   async function loadList() {
     statusNode.textContent = 'Cargando…';
-    const result = await window.PackingApi.request(
-      `/lotes?page=${state.page}&items=${state.items}`,
-    );
+    const result = await window.PackingApi.request(buildListUrl());
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
       tbody.innerHTML = '<tr><td colspan="6" class="text-destructive">No se pudo obtener el listado.</td></tr>';
@@ -422,7 +572,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   tipoSelect.addEventListener('change', syncFormByTipo);
   document.getElementById('lo-btn-new').addEventListener('click', () => openForm(null));
-  document.getElementById('lo-form-cancel').addEventListener('click', closeForm);
+  document.getElementById('lo-filters').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readFilters();
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('lo-filters-clear').addEventListener('click', async () => {
+    document.getElementById('lo-filter-tipo').value = '';
+    document.getElementById('lo-filter-final').value = '';
+    document.getElementById('lo-filter-unidad').value = '';
+    document.getElementById('lo-filter-padre').value = '';
+    state.filters = { id_tipo: '', es_final: '', id_unidad: '', padre_id: '' };
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('lo-form-cancel').addEventListener('click', () => {
+    closeForm({ reopenPadre: true });
+  });
   document.getElementById('lo-detail-close').addEventListener('click', closeDetail);
   document.getElementById('lo-detail-edit').addEventListener('click', () => {
     const lote = state.detailLote;
@@ -430,6 +597,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (lote) {
       openForm(lote);
     }
+  });
+  document.getElementById('lo-btn-nuevo-hijo').addEventListener('click', () => {
+    const padre = state.detailLote;
+    if (!padre || tipoEsFinal(padre.ID_TIPO)) {
+      return;
+    }
+    detailDialog.close();
+    openForm(null, {
+      padreId: padre.ID,
+      onlyFinalTipos: true,
+      returnToPadreId: padre.ID,
+    });
+  });
+  hijosTbody.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="open-hijo"]');
+    if (!button) {
+      return;
+    }
+    const row = button.closest('tr[data-id]');
+    if (!row) {
+      return;
+    }
+    const id = Number(row.dataset.id);
+    const result = await window.PackingApi.request(`/lotes/${id}`);
+    if (!result.ok) {
+      window.PackingToast.toast(mapError(result.error), 'error');
+      return;
+    }
+    state.lotesCache.set(result.data.ID, result.data);
+    await openDetail(result.data);
   });
   document.getElementById('lo-delete-cancel').addEventListener('click', () => {
     state.deleteId = null;
@@ -514,6 +711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFormError('');
     const idValue = document.getElementById('lo-id').value;
     const final = tipoEsFinal(tipoSelect.value);
+    const returnToPadreId = state.formOptions?.returnToPadreId ?? null;
     const payload = {
       ID_TIPO: Number(tipoSelect.value),
       PADRE_ID: final ? optionalNumber(padreSelect.value) : null,
@@ -540,13 +738,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      closeForm();
+      state.formOptions = null;
+      padreSelect.disabled = false;
+      if (formDialog.open) {
+        formDialog.close();
+      }
       window.PackingToast.toast(idValue ? 'Lote actualizado' : 'Lote creado');
       state.lotesCache.set(result.data.ID, result.data);
       if (!idValue) {
         state.page = 1;
       }
       await loadList();
+
+      if (returnToPadreId != null) {
+        const padreResult = await window.PackingApi.request(`/lotes/${returnToPadreId}`);
+        if (padreResult.ok) {
+          state.lotesCache.set(padreResult.data.ID, padreResult.data);
+          await openDetail(padreResult.data);
+          return;
+        }
+      }
       await openDetail(result.data);
     } catch {
       showFormError('Error de red.');

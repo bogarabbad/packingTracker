@@ -3,6 +3,12 @@ const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
+const {
+  parseOptionalBoolean,
+  parseOptionalPositiveInt,
+  parseOptionalQueryText,
+  likeContains,
+} = require('../listFilters');
 
 const FIELDS = [
   'ID',
@@ -174,12 +180,51 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const page = paginationFromQuery(req.query);
+    const filters = [];
+    const params = [];
+
+    const q = parseOptionalQueryText(req.query.q, 'invalid_q');
+    if (q !== null) {
+      params.push(likeContains(q));
+      filters.push(`(
+        "CODIGO" ILIKE $${params.length} ESCAPE '\\'
+        OR "PLACAS" ILIKE $${params.length} ESCAPE '\\'
+        OR COALESCE("NUMERO_ECONOMICO", '') ILIKE $${params.length} ESCAPE '\\'
+        OR COALESCE("MARCA", '') ILIKE $${params.length} ESCAPE '\\'
+        OR COALESCE("MODELO", '') ILIKE $${params.length} ESCAPE '\\'
+      )`);
+    }
+
+    const idTipo = parseOptionalPositiveInt(req.query.id_tipo, 'invalid_id_tipo');
+    if (idTipo !== null) {
+      params.push(idTipo);
+      filters.push(`"ID_TIPO" = $${params.length}`);
+    }
+
+    const idEstatus = parseOptionalPositiveInt(req.query.id_estatus, 'invalid_id_estatus');
+    if (idEstatus !== null) {
+      params.push(idEstatus);
+      filters.push(`"ID_ESTATUS" = $${params.length}`);
+    }
+
+    const activo = parseOptionalBoolean(req.query.activo, 'invalid_activo');
+    if (activo !== null) {
+      params.push(activo);
+      filters.push(`"ACTIVO" = $${params.length}`);
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
     const totalResult = await pool.query(
-      'SELECT COUNT(*)::int AS total FROM "UNIDADES_TRANSPORTE"',
+      `SELECT COUNT(*)::int AS total FROM "UNIDADES_TRANSPORTE" ${where}`,
+      params,
     );
+    const listParams = [...params, page.items, page.offset];
     const result = await pool.query(
-      `SELECT ${FIELDS} FROM "UNIDADES_TRANSPORTE" ORDER BY "ID" LIMIT $1 OFFSET $2`,
-      [page.items, page.offset],
+      `SELECT ${FIELDS} FROM "UNIDADES_TRANSPORTE"
+       ${where}
+       ORDER BY "CREADO_EN" DESC, "ID" DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      listParams,
     );
     sendData(
       res,

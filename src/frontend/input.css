@@ -179,6 +179,14 @@
     @apply bg-destructive text-white;
   }
 
+  .ui-filters {
+    @apply grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .ui-filters-actions {
+    @apply flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-4;
+  }
+
   .ui-table-wrap {
     @apply relative w-full overflow-x-auto;
   }

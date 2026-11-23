@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Expediciones · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'expediciones' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Expediciones' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="ex-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nueva expedición',
+              variant: 'default',
+              size: 'md',
+              id: 'ex-btn-new'
+            }) %>
+          </section>
+
+          <form id="ex-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ex-filter-unidad">Unidad</label>
+              <select class="ui-input" id="ex-filter-unidad" name="id_unidad">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ex-filter-abierta">Estado</label>
+              <select class="ui-input" id="ex-filter-abierta" name="abierta">
+                <option value="">Todas</option>
+                <option value="true">Abiertas</option>
+                <option value="false">Cerradas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ex-filter-q">Ubicación</label>
+              <input class="ui-input" id="ex-filter-q" name="q" placeholder="Clave ubicación" autocomplete="off" />
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="ex-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Expediciones">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Unidad</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Creada</th>
+                      <th scope="col">Cierre</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ex-tbody">
+                    <tr>
+                      <td colspan="6" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="ex-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="ex-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="ex-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="ex-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ex-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ex-form-title" class="ui-dialog-title">Nueva expedición</h2>
+      </header>
+      <form id="ex-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="ex-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ex-id-unidad">Unidad de transporte</label>
+          <select class="ui-input" id="ex-id-unidad" name="ID_UNIDAD" required></select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ex-id-ubicacion">ID ubicación salida</label>
+          <input class="ui-input" id="ex-id-ubicacion" name="ID_UBICACION_SALIDA" inputmode="numeric" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ex-clave-ubicacion">Clave ubicación salida</label>
+          <input class="ui-input" id="ex-clave-ubicacion" name="CLAVE_UBICACION_SALIDA" autocomplete="off" />
+        </div>
+        <div id="ex-cierre-wrap" class="hidden flex flex-col gap-2">
+          <label class="ui-label" for="ex-fecha-cierre">Fecha de cierre</label>
+          <input class="ui-input" id="ex-fecha-cierre" name="FECHA_CIERRE" type="datetime-local" />
+          <p class="text-xs text-muted-foreground">Vacío = expedición abierta.</p>
+        </div>
+        <p id="ex-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="ex-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="ex-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="ex-detail-dialog" class="ui-dialog-panel ui-dialog-wide backdrop:bg-black/50" aria-labelledby="ex-detail-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ex-detail-title" class="ui-dialog-title">Detalle de expedición</h2>
+        <p id="ex-detail-subtitle" class="ui-dialog-description"></p>
+      </header>
+
+      <div class="mt-4 grid gap-6">
+        <div class="flex flex-wrap gap-2" id="ex-detail-badges"></div>
+
+        <dl class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <dt class="text-xs text-muted-foreground">Unidad</dt>
+            <dd id="ex-detail-unidad" class="text-sm font-medium"></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-muted-foreground">Creada</dt>
+            <dd id="ex-detail-creada" class="text-sm font-medium"></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-muted-foreground">Cierre</dt>
+            <dd id="ex-detail-cierre" class="text-sm font-medium"></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-muted-foreground">Ubicación salida</dt>
+            <dd id="ex-detail-ubicacion" class="text-sm font-medium"></dd>
+          </div>
+        </dl>
+
+        <section class="grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Lotes embarcados</h3>
+            <p id="ex-lotes-status" class="text-sm text-muted-foreground"></p>
+          </div>
+          <form id="ex-lote-form" class="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ex-lote-id">Lote suelto disponible</label>
+              <select class="ui-input" id="ex-lote-id" required></select>
+            </div>
+            <div class="flex items-end">
+              <button type="submit" id="ex-lote-submit" class="ui-btn ui-btn-default ui-btn-md">
+                Embarcar
+              </button>
+            </div>
+          </form>
+          <p id="ex-lote-error" class="hidden text-sm text-destructive" role="alert"></p>
+          <p id="ex-lote-hint" class="text-sm text-muted-foreground">
+            Solo lotes sin padre y que aún no estén en otra expedición.
+          </p>
+          <div class="ui-table-wrap">
+            <table class="ui-table" aria-label="Lotes embarcados">
+              <thead>
+                <tr>
+                  <th scope="col">Lote</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Embarcado</th>
+                  <th scope="col" class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="ex-lotes-tbody">
+                <tr><td colspan="4" class="text-muted-foreground">Sin lotes.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="ex-detail-close" class="ui-btn ui-btn-outline ui-btn-md">Cerrar</button>
+        <button type="button" id="ex-detail-cerrar" class="ui-btn ui-btn-outline ui-btn-md">Cerrar expedición</button>
+        <button type="button" id="ex-detail-edit" class="ui-btn ui-btn-default ui-btn-md">Editar</button>
+      </footer>
+    </dialog>
+
+    <dialog id="ex-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ex-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ex-delete-title" class="ui-dialog-title">Eliminar expedición</h2>
+        <p class="ui-dialog-description" id="ex-delete-text">¿Eliminar esta expedición?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="ex-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="ex-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/expediciones.js" defer></script>
+  </body>
+</html>

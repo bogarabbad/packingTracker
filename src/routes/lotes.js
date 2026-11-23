@@ -3,6 +3,10 @@ const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
+const {
+  parseOptionalBoolean,
+  parseOptionalPositiveInt,
+} = require('../listFilters');
 
 const FIELDS =
   '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "ID_ORIGEN_USUARIO", "CREADO_EN", "ACTUALIZADO_EN"';
@@ -116,7 +120,10 @@ function translate(err) {
     if (message.includes('embarca')) {
       throw httpError(400, 'invalid_id_unidad');
     }
-    if (message.includes('dentro de otro')) {
+    if (
+      message.includes('dentro de otro')
+      || message.includes('embarcado no puede tener padre')
+    ) {
       throw httpError(400, 'invalid_padre_id');
     }
     if (message.includes('producto') || message.includes('medida')) {
@@ -134,11 +141,69 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const page = paginationFromQuery(req.query);
-    const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM "LOTES"');
-    const result = await pool.query(
-      `SELECT ${FIELDS} FROM "LOTES" ORDER BY "ID" LIMIT $1 OFFSET $2`,
-      [page.items, page.offset],
+    const filters = [];
+    const params = [];
+    let joinTipos = false;
+
+    const padreId = parseOptionalPositiveInt(req.query.padre_id, 'invalid_padre_id');
+    if (padreId !== null) {
+      params.push(padreId);
+      filters.push(`l."PADRE_ID" = $${params.length}`);
+    }
+
+    const idTipo = parseOptionalPositiveInt(req.query.id_tipo, 'invalid_id_tipo');
+    if (idTipo !== null) {
+      params.push(idTipo);
+      filters.push(`l."ID_TIPO" = $${params.length}`);
+    }
+
+    const idUnidad = parseOptionalPositiveInt(req.query.id_unidad, 'invalid_id_unidad');
+    if (idUnidad !== null) {
+      params.push(idUnidad);
+      filters.push(`l."ID_UNIDAD" = $${params.length}`);
+    }
+
+    const esFinal = parseOptionalBoolean(req.query.es_final, 'invalid_es_final');
+    if (esFinal !== null) {
+      joinTipos = true;
+      params.push(esFinal);
+      filters.push(`t."ES_FINAL" = $${params.length}`);
+    }
+
+    const embarcable = parseOptionalBoolean(req.query.embarcable, 'invalid_embarcable');
+    if (embarcable === true) {
+      filters.push('l."PADRE_ID" IS NULL');
+      filters.push(`NOT EXISTS (
+        SELECT 1 FROM "EXPEDICIONES_LOTES" AS el WHERE el."ID_LOTE" = l."ID"
+      )`);
+    } else if (embarcable === false) {
+      filters.push(`(
+        l."PADRE_ID" IS NOT NULL
+        OR EXISTS (
+          SELECT 1 FROM "EXPEDICIONES_LOTES" AS el WHERE el."ID_LOTE" = l."ID"
+        )
+      )`);
+    }
+
+    const from = joinTipos
+      ? '"LOTES" AS l JOIN "LOTES_TIPOS" AS t ON t."ID" = l."ID_TIPO"'
+      : '"LOTES" AS l';
+    const selectFields = FIELDS.split(', ').map((col) => `l.${col}`).join(', ');
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const totalResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM ${from} ${where}`,
+      params,
     );
+    const listParams = [...params, page.items, page.offset];
+    const result = await pool.query(
+      `SELECT ${selectFields} FROM ${from}
+       ${where}
+       ORDER BY l."CREADO_EN" DESC, l."ID" DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      listParams,
+    );
+
     sendData(
       res,
       200,

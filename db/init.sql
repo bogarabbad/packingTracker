@@ -303,6 +303,7 @@ DECLARE
   cierre timestamptz;
   creada timestamptz;
   cierre_anterior timestamptz;
+  padre_id integer;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     SELECT "FECHA_CIERRE" INTO cierre
@@ -342,6 +343,18 @@ BEGIN
     RAISE EXCEPTION 'el embarque no puede ser anterior a la expedicion' USING ERRCODE = '23514';
   END IF;
 
+  SELECT "PADRE_ID" INTO padre_id
+  FROM "LOTES"
+  WHERE "ID" = NEW."ID_LOTE";
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'lote inexistente' USING ERRCODE = '23503';
+  END IF;
+
+  IF padre_id IS NOT NULL THEN
+    RAISE EXCEPTION 'solo se embarcan lotes sin padre' USING ERRCODE = '23514';
+  END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -373,6 +386,14 @@ BEGIN
     END IF;
 
     IF NEW."PADRE_ID" IS NOT NULL THEN
+      IF EXISTS (
+        SELECT 1
+        FROM "EXPEDICIONES_LOTES"
+        WHERE "ID_LOTE" = NEW."ID"
+      ) THEN
+        RAISE EXCEPTION 'un lote embarcado no puede tener padre' USING ERRCODE = '23514';
+      END IF;
+
       SELECT tipo."ES_FINAL" INTO padre_final
       FROM "LOTES" AS padre
       JOIN "LOTES_TIPOS" AS tipo ON tipo."ID" = padre."ID_TIPO"

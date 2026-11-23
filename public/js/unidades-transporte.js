@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tipos: new Map(),
     estatus: new Map(),
     deleteId: null,
+    filters: { q: '', id_tipo: '', id_estatus: '', activo: '' },
   };
 
   const statusNode = document.getElementById('ut-status');
@@ -202,13 +203,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     fillSelect(tipoSelect, tipoRows, 'Selecciona un tipo');
     fillSelect(estatusSelect, estatusRows, 'Selecciona un estatus');
+    fillSelect(document.getElementById('ut-filter-tipo'), tipoRows, 'Todos');
+    fillSelect(document.getElementById('ut-filter-estatus'), estatusRows, 'Todos');
+  }
+
+  function buildListUrl() {
+    const params = new URLSearchParams({
+      page: String(state.page),
+      items: String(state.items),
+    });
+    if (state.filters.q) {
+      params.set('q', state.filters.q);
+    }
+    if (state.filters.id_tipo) {
+      params.set('id_tipo', state.filters.id_tipo);
+    }
+    if (state.filters.id_estatus) {
+      params.set('id_estatus', state.filters.id_estatus);
+    }
+    if (state.filters.activo) {
+      params.set('activo', state.filters.activo);
+    }
+    return `/unidades-transporte?${params}`;
+  }
+
+  function readFilters() {
+    state.filters.q = document.getElementById('ut-filter-q').value.trim();
+    state.filters.id_tipo = document.getElementById('ut-filter-tipo').value;
+    state.filters.id_estatus = document.getElementById('ut-filter-estatus').value;
+    state.filters.activo = document.getElementById('ut-filter-activo').value;
   }
 
   async function loadList() {
     statusNode.textContent = 'Cargando…';
-    const result = await window.PackingApi.request(
-      `/unidades-transporte?page=${state.page}&items=${state.items}`,
-    );
+    const result = await window.PackingApi.request(buildListUrl());
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
@@ -229,6 +257,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('ut-btn-new').addEventListener('click', () => openForm(null));
   document.getElementById('ut-form-cancel').addEventListener('click', closeForm);
+  document.getElementById('ut-filters').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readFilters();
+    state.page = 1;
+    await loadList();
+  });
+  document.getElementById('ut-filters-clear').addEventListener('click', async () => {
+    document.getElementById('ut-filter-q').value = '';
+    document.getElementById('ut-filter-tipo').value = '';
+    document.getElementById('ut-filter-estatus').value = '';
+    document.getElementById('ut-filter-activo').value = '';
+    state.filters = { q: '', id_tipo: '', id_estatus: '', activo: '' };
+    state.page = 1;
+    await loadList();
+  });
   document.getElementById('ut-delete-cancel').addEventListener('click', () => {
     state.deleteId = null;
     if (deleteDialog.open) {

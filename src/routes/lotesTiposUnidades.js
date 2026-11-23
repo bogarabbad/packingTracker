@@ -92,13 +92,16 @@ router.get('/', async (req, res) => {
 
     const result = idTipo === null
       ? await pool.query(
-        `SELECT ${FIELDS} FROM "LOTES_TIPOS_UNIDADES" ORDER BY "ID" LIMIT $1 OFFSET $2`,
+        `SELECT ${FIELDS} FROM "LOTES_TIPOS_UNIDADES"
+         ORDER BY "CREADO_EN" DESC, "ID" DESC
+         LIMIT $1 OFFSET $2`,
         [page.items, page.offset],
       )
       : await pool.query(
         `SELECT ${FIELDS} FROM "LOTES_TIPOS_UNIDADES"
          WHERE "ID_TIPO" = $1
-         ORDER BY "ID" LIMIT $2 OFFSET $3`,
+         ORDER BY "CREADO_EN" DESC, "ID" DESC
+         LIMIT $2 OFFSET $3`,
         [idTipo, page.items, page.offset],
       );
 

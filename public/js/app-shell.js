@@ -42,6 +42,16 @@
     return isDesktop();
   }
 
+  function bindDialogLightDismiss() {
+    document.addEventListener('click', (event) => {
+      const dialog = event.target;
+      if (!(dialog instanceof HTMLDialogElement) || !dialog.open) {
+        return;
+      }
+      dialog.close();
+    });
+  }
+
   function bindSidebar() {
     const app = document.querySelector('.ui-app');
     const sidebar = document.getElementById('app-sidebar');
@@ -95,6 +105,7 @@
     }
     bindSession();
     bindSidebar();
+    bindDialogLightDismiss();
   });
 
   window.PackingShell = {

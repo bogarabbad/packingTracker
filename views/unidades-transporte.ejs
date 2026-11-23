@@ -22,6 +22,37 @@
             }) %>
           </section>
 
+          <form id="ut-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ut-filter-q">Buscar</label>
+              <input class="ui-input" id="ut-filter-q" name="q" placeholder="Código, placas, marca…" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ut-filter-tipo">Tipo</label>
+              <select class="ui-input" id="ut-filter-tipo" name="id_tipo">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ut-filter-estatus">Estatus</label>
+              <select class="ui-input" id="ut-filter-estatus" name="id_estatus">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ut-filter-activo">Activo</label>
+              <select class="ui-input" id="ut-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activas</option>
+                <option value="false">Inactivas</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="ut-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
           <%- include('partials/card', {
             body: `
               <div class="ui-table-wrap">

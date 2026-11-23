@@ -22,6 +22,39 @@
             }) %>
           </section>
 
+          <form id="lo-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-filter-tipo">Tipo</label>
+              <select class="ui-input" id="lo-filter-tipo" name="id_tipo">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-filter-final">Final</label>
+              <select class="ui-input" id="lo-filter-final" name="es_final">
+                <option value="">Todos</option>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-filter-unidad">Unidad transporte</label>
+              <select class="ui-input" id="lo-filter-unidad" name="id_unidad">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="lo-filter-padre">Padre</label>
+              <select class="ui-input" id="lo-filter-padre" name="padre_id">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="lo-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
           <%- include('partials/card', {
             body: `
               <div class="ui-table-wrap">
@@ -69,6 +102,9 @@
         <div id="lo-padre-wrap" class="flex flex-col gap-2">
           <label class="ui-label" for="lo-padre-id">Lote padre</label>
           <select class="ui-input" id="lo-padre-id" name="PADRE_ID"></select>
+          <p id="lo-padre-hint" class="hidden text-xs text-muted-foreground">
+            Solo aplica a categorías finales. El padre debe ser un lote no final.
+          </p>
         </div>
         <div id="lo-unidad-wrap" class="hidden flex flex-col gap-2">
           <label class="ui-label" for="lo-id-unidad">Unidad de transporte</label>
@@ -174,6 +210,32 @@
         <p id="lo-prod-hint" class="hidden text-sm text-muted-foreground">
           Solo los lotes de categoría final pueden llevar productos.
         </p>
+
+        <section id="lo-hijos-section" class="hidden grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Lotes hijos</h3>
+            <div class="flex flex-wrap items-center gap-2">
+              <p id="lo-hijos-status" class="text-sm text-muted-foreground"></p>
+              <button type="button" id="lo-btn-nuevo-hijo" class="ui-btn ui-btn-default ui-btn-sm">
+                Nuevo hijo
+              </button>
+            </div>
+          </div>
+          <div class="ui-table-wrap">
+            <table class="ui-table" aria-label="Lotes hijos">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col" class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="lo-hijos-tbody">
+                <tr><td colspan="3" class="text-muted-foreground">Sin hijos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
