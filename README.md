@@ -18,9 +18,11 @@ The packing process modeled in the database is:
 4. **Expeditions (`EXPEDICIONES`)** represent a dispatch on one transport unit. An expedition is open while `FECHA_CIERRE` is null, and closed once that timestamp is set. A unit may have only one open expedition at a time. `UBICACION_SALIDA_ID` optionally references `UBICACIONES`. `ID_UBICACION_SALIDA` remains an external integer.
 5. **Loadings (`EXPEDICIONES_LOTES`)** embark a lot on an expedition. Only lots without a parent (loose lots) can be embarked, a lot can belong to only one expedition, and lots cannot be added or removed after the expedition is closed. A final lot is not assigned directly to the transport unit (`ID_UNIDAD`); only a non-final lot such as a pallet may point at the unit.
 6. **Transport units (`UNIDADES_TRANSPORTE`)** are catalogued with type, plates, optional economic number and capacities, and a status. Seed types are tractocamión, torton, rabón, camioneta, and remolque. Seed statuses are disponible, cargando, en tránsito, mantenimiento, and fuera de servicio.
-7. **Receptions (`RECEPCIONES`)** link an expedition (`ID_EXPEDICION`) to the location where it is received (`UBICACION_ID`). There is no HTTP API for this table.
+7. **Receptions (`RECEPCIONES`)** link an expedition (`ID_EXPEDICION`) to the location where it is received (`UBICACION_ID`).
+8. **Lot locations (`LOTES_UBICACIONES`)** attach a location to a lot. The seed types in `LOTES_UBICACIONES_TIPOS` are `ORIGEN`, `DESTINO`, and `XDOCK`. A lot has at most one `DESTINO`.
+9. **Reception lines (`RECEPCIONES_LOTES`)** receive a parentless lot once, and only when that lot's `DESTINO` is the reception's location. A received lot cannot later be given a parent. There is no HTTP API for receptions, lot locations, or reception lines.
 
-Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot references, expeditions, loadings, and receptions. Origin `1` (`interno`) means an internal user in `USUARIOS`. Any other origin is treated as external. Every table stores `CREADO_EN` and `ACTUALIZADO_EN`.
+Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot references, lot locations, expeditions, loadings, receptions, and reception lines. Origin `1` (`interno`) means an internal user in `USUARIOS`. Any other origin is treated as external. Every table stores `CREADO_EN` and `ACTUALIZADO_EN`.
 
 ## Features
 
@@ -63,7 +65,7 @@ There is no user-management API (only login against `USUARIOS`). `hashPassword` 
 │   ├── create_database.sql   # first-time role and empty database (run as a superuser)
 │   ├── init.sql              # current schema and catalog seed for a new database
 │   ├── seed.sql              # optional sample transport units
-│   └── migrations/           # incremental SQL migrations (0001–0024)
+│   └── migrations/           # incremental SQL migrations (0001–0025)
 ├── src/
 │   ├── server.js             # process entry
 │   ├── app.js
@@ -119,7 +121,7 @@ Optional sample transport units:
 psql -U packing -d packing_tracker -f db/seed.sql
 ```
 
-`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0024`.
+`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0025`.
 
 ### Configuration
 
