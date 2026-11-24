@@ -9,6 +9,7 @@ const {
   parseOptionalQueryText,
   likeContains,
 } = require('../listFilters');
+const { listRecepciones } = require('./recepciones');
 
 const FIELDS = [
   'ID',
@@ -226,6 +227,22 @@ router.get('/', async (req, res) => {
       result.rows.map(mapRow),
       paginationMetadata(page.page, page.items, totalResult.rows[0].total),
     );
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id/recepciones', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const existing = await pool.query(
+      'SELECT 1 FROM "EXPEDICIONES" WHERE "ID" = $1',
+      [id],
+    );
+    if (!existing.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+    await listRecepciones(req, res, id);
   } catch (err) {
     translate(err);
   }

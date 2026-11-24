@@ -20,7 +20,7 @@ The packing process modeled in the database is:
 6. **Transport units (`UNIDADES_TRANSPORTE`)** are catalogued with type, plates, optional economic number and capacities, and a status. Seed types are tractocamión, torton, rabón, camioneta, and remolque. Seed statuses are disponible, cargando, en tránsito, mantenimiento, and fuera de servicio.
 7. **Receptions (`RECEPCIONES`)** link an expedition (`ID_EXPEDICION`) to the location where it is received (`UBICACION_ID`).
 8. **Lot locations (`LOTES_UBICACIONES`)** attach a location to a lot. The seed types in `LOTES_UBICACIONES_TIPOS` are `ORIGEN`, `DESTINO`, and `XDOCK`. A lot has at most one `DESTINO`.
-9. **Reception lines (`RECEPCIONES_LOTES`)** receive a parentless lot once, and only when that lot's `DESTINO` is the reception's location. A received lot cannot later be given a parent. There is no HTTP API for receptions, lot locations, or reception lines.
+9. **Reception lines (`RECEPCIONES_LOTES`)** receive a parentless lot once, and only when that lot's `DESTINO` is the reception's location. A received lot cannot later be given a parent.
 
 Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot references, lot locations, expeditions, loadings, receptions, and reception lines. Origin `1` (`interno`) means an internal user in `USUARIOS`. Any other origin is treated as external. Every table stores `CREADO_EN` and `ACTUALIZADO_EN`.
 
@@ -29,8 +29,8 @@ Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot r
 - REST API under Express with a uniform response envelope (`data`, `_metadata`, `error`).
 - JWT Bearer authentication (`POST /auth/login`). All API routes require a token except `GET /health` and `POST /auth/login`.
 - Health check that reports API and PostgreSQL status (`200` when both are up, `503` with `status: degraded` when the database is unreachable).
-- CRUD for catalogs: unit statuses, transport unit types, lot types, units of measure, lot-type-to-measure relations, and reference types.
-- CRUD for transport units, lots, lot products, lot references, expeditions, and expedition loadings (`EXPEDICIONES_LOTES` has no `PUT`).
+- CRUD for catalogs: unit statuses, transport unit types, lot types, units of measure, lot-type-to-measure relations, reference types, location categories, locations, and lot-location types.
+- CRUD for transport units, lots, lot products, lot references, lot locations, expeditions, expedition loadings (`EXPEDICIONES_LOTES` has no `PUT`), receptions, and reception lines.
 - Paginated list endpoints (`page` and `items`; defaults `1` and `50`) and query filters on several resources.
 - Database-enforced packing and dispatch rules (see Context). Seed rows (`ES_SEMILLA = true`) can be updated but not deleted (`409` / `seed_not_deletable`).
 - Server-rendered web UI (EJS + Tailwind CSS) in Spanish: login, operations dashboard, lots, expeditions, and catalog screens. The browser stores the access token in `localStorage` and sends it on API calls. HTML pages themselves are served without a server-side session check.
@@ -272,6 +272,15 @@ All of the following, except `/health` and `/auth/login`, require a Bearer token
 | `GET, POST /lotes-productos` and `GET, PUT, DELETE /lotes-productos/{id}` | Lot products |
 | `GET, POST /expediciones` and `GET, PUT, DELETE /expediciones/{id}` | Expeditions |
 | `GET, POST /expediciones-lotes` and `GET, DELETE /expediciones-lotes/{id}` | Loadings |
+| `GET /expediciones/{id}/recepciones` | Receptions of one expedition |
+| `GET, POST /ubicaciones-categorias` and `GET, PUT, DELETE /ubicaciones-categorias/{id}` | Location categories |
+| `GET, POST /ubicaciones` and `GET, PUT, DELETE /ubicaciones/{id}` | Locations |
+| `GET, POST /lotes-ubicaciones-tipos` and `GET, PUT, DELETE /lotes-ubicaciones-tipos/{id}` | Lot-location types |
+| `GET, POST /lotes-ubicaciones` and `GET, PUT, DELETE /lotes-ubicaciones/{id}` | Lot locations |
+| `GET /lotes/{id}/ubicaciones` | Locations of one lot |
+| `GET, POST /recepciones` and `GET, PUT, DELETE /recepciones/{id}` | Receptions |
+| `GET /recepciones/{id}/lotes` | Lots of one reception |
+| `GET, POST /recepciones-lotes` and `GET, PUT, DELETE /recepciones-lotes/{id}` | Reception lines |
 
 Common list query parameters:
 
@@ -282,6 +291,10 @@ Common list query parameters:
 - Lot-type measures: `id_tipo`
 - Expeditions: `id_unidad`, `abierta`, `q` (matches `CODIGO` or `NOMBRE` of the location referenced by `UBICACION_SALIDA_ID`)
 - Loadings: `id_expedicion`, `id_lote`
+- Location categories and locations: `q`, `activo`, `padre_id` (`raiz` means no parent); locations also `id_categoria`
+- Lot locations: `id_lote`, `id_tipo`, `ubicacion_id`
+- Receptions: `id_expedicion`, `ubicacion_id`
+- Reception lines: `id_recepcion`, `id_lote`
 - Transport units: `q` (code, plates, economic number, brand, model), `id_tipo`, `id_estatus`, `activo`
 
 A missing route returns `404` with `error.error = not_found` and `error.path`.

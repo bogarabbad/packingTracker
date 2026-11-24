@@ -7,6 +7,7 @@ const {
   parseOptionalBoolean,
   parseOptionalPositiveInt,
 } = require('../listFilters');
+const { listLotesUbicaciones } = require('./lotesUbicaciones');
 
 const FIELDS =
   '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "ID_ORIGEN_USUARIO", "CREADO_EN", "ACTUALIZADO_EN"';
@@ -210,6 +211,22 @@ router.get('/', async (req, res) => {
       result.rows.map(mapRow),
       paginationMetadata(page.page, page.items, totalResult.rows[0].total),
     );
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id/ubicaciones', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const existing = await pool.query(
+      'SELECT 1 FROM "LOTES" WHERE "ID" = $1',
+      [id],
+    );
+    if (!existing.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+    await listLotesUbicaciones(req, res, id);
   } catch (err) {
     translate(err);
   }

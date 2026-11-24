@@ -13,8 +13,11 @@ info:
     Esta versión publica el estado del servicio, el CRUD de los catálogos
     `UNIDADES_ESTATUS`, `UNIDADES_TIPOS`, `LOTES_TIPOS`, `UNIDADES` y `REFERENCIAS_TIPOS`,
     el CRUD de `LOTES_TIPOS_UNIDADES`, el CRUD de `LOTES`, el CRUD de `LOTES_REFERENCIAS`,
-    el CRUD de `LOTES_PRODUCTOS`, el CRUD de `EXPEDICIONES`, el CRUD de
-    `EXPEDICIONES_LOTES` y el CRUD de `UNIDADES_TRANSPORTE`.
+    el CRUD de `LOTES_PRODUCTOS`,     el CRUD de `EXPEDICIONES`, el CRUD de
+    `EXPEDICIONES_LOTES`, el CRUD de `UNIDADES_TRANSPORTE`,
+    el CRUD de `UBICACIONES_CATEGORIAS` y `UBICACIONES`,
+    el CRUD de `LOTES_UBICACIONES_TIPOS` y `LOTES_UBICACIONES`,
+    y el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -103,6 +106,38 @@ tags:
       Solo lotes sin `PADRE_ID` (sueltos) y que aún no estén embarcados.
       Un lote solo puede pertenecer a una expedición.
       No se agrega ni se quita en una expedición cerrada.
+  - name: Categorías de ubicación
+    description: |
+      Catálogo `UBICACIONES_CATEGORIAS`.
+      `PADRE_ID` arma el árbol. `padre_id=raiz` lista las raíces.
+      Una categoría no puede colgar de sí misma ni de un descendiente.
+      ORIGEN, DESTINO y XDOCK no viven aquí: esos códigos son `LOTES_UBICACIONES_TIPOS`.
+  - name: Ubicaciones
+    description: |
+      Catálogo `UBICACIONES`.
+      Cada fila exige `ID_CATEGORIA`. `PADRE_ID` arma el árbol.
+      `padre_id=raiz` lista las raíces.
+      Una ubicación no puede colgar de sí misma ni de un descendiente.
+  - name: Tipos de ubicación de lote
+    description: |
+      Catálogo `LOTES_UBICACIONES_TIPOS`.
+      ORIGEN, DESTINO y XDOCK nacen como semilla.
+  - name: Ubicaciones de lote
+    description: |
+      Registro `LOTES_UBICACIONES`.
+      Une un lote, un tipo y una ubicación.
+      Un lote tiene como mucho un DESTINO.
+      `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+  - name: Recepciones
+    description: |
+      Registro `RECEPCIONES`.
+      Une una expedición con la ubicación donde se recibe.
+      `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+  - name: Lotes recibidos
+    description: |
+      Registro `RECEPCIONES_LOTES`.
+      Un lote suelto se recibe una sola vez, y solo si su DESTINO
+      es la ubicación de la recepción.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
@@ -1364,6 +1399,664 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /ubicaciones-categorias:
+    get:
+      tags: [Categorías de ubicación]
+      operationId: listUbicacionesCategorias
+      summary: Lista las categorías de ubicación
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/PadreIdArbol'
+      responses:
+        '200':
+          description: Categorías ordenadas por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacionCategoriaLista'
+        '400':
+          description: |
+            Paginación inválida, `q` inválido, `activo` inválido o `padre_id` inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Categorías de ubicación]
+      operationId: createUbicacionCategoria
+      summary: Crea una categoría de ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/UbicacionCategoria'
+      responses:
+        '201':
+          description: Categoría creada. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacionCategoria'
+        '400':
+          $ref: '#/components/responses/ErrorUbicacionCategoria'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /ubicaciones-categorias/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Categorías de ubicación]
+      operationId: getUbicacionCategoria
+      summary: Obtiene una categoría de ubicación
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacionCategoria'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Categorías de ubicación]
+      operationId: updateUbicacionCategoria
+      summary: Reemplaza una categoría de ubicación
+      description: |
+        Si `ACTIVO` no viene, se guarda `true`. Si `PADRE_ID` no viene, queda `null`.
+        `ES_SEMILLA` no cambia.
+      requestBody:
+        $ref: '#/components/requestBodies/UbicacionCategoria'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacionCategoria'
+        '400':
+          $ref: '#/components/responses/ErrorUbicacionCategoria'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Categorías de ubicación]
+      operationId: deleteUbicacionCategoria
+      summary: Elimina una categoría de ubicación
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /ubicaciones:
+    get:
+      tags: [Ubicaciones]
+      operationId: listUbicaciones
+      summary: Lista las ubicaciones
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/PadreIdArbol'
+        - $ref: '#/components/parameters/IdCategoria'
+      responses:
+        '200':
+          description: Ubicaciones ordenadas por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacionLista'
+        '400':
+          description: Paginación, `q`, `activo`, `padre_id` o `id_categoria` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Ubicaciones]
+      operationId: createUbicacion
+      summary: Crea una ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/Ubicacion'
+      responses:
+        '201':
+          description: Ubicación creada. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorUbicacion'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /ubicaciones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Ubicaciones]
+      operationId: getUbicacion
+      summary: Obtiene una ubicación
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Ubicaciones]
+      operationId: updateUbicacion
+      summary: Reemplaza una ubicación
+      description: |
+        Si `ACTIVO` no viene, se guarda `true`. Si `PADRE_ID` no viene, queda `null`.
+        `ES_SEMILLA` no cambia.
+      requestBody:
+        $ref: '#/components/requestBodies/Ubicacion'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorUbicacion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Ubicaciones]
+      operationId: deleteUbicacion
+      summary: Elimina una ubicación
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-ubicaciones-tipos:
+    get:
+      tags: [Tipos de ubicación de lote]
+      operationId: listLotesUbicacionesTipos
+      summary: Lista los tipos de relación lote-ubicación
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogoLista'
+        '400':
+          $ref: '#/components/responses/PaginacionInvalida'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tipos de ubicación de lote]
+      operationId: createLoteUbicacionTipo
+      summary: Crea un tipo de relación lote-ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '201':
+          $ref: '#/components/responses/CatalogoCreado'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-ubicaciones-tipos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de ubicación de lote]
+      operationId: getLoteUbicacionTipo
+      summary: Obtiene un tipo de relación lote-ubicación
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tipos de ubicación de lote]
+      operationId: updateLoteUbicacionTipo
+      summary: Reemplaza un tipo de relación lote-ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tipos de ubicación de lote]
+      operationId: deleteLoteUbicacionTipo
+      summary: Elimina un tipo de relación lote-ubicación
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-ubicaciones:
+    get:
+      tags: [Ubicaciones de lote]
+      operationId: listLotesUbicaciones
+      summary: Lista las relaciones de un lote con ubicaciones
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdLote'
+        - $ref: '#/components/parameters/IdTipo'
+        - $ref: '#/components/parameters/UbicacionId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteUbicacionLista'
+        '400':
+          description: Paginación, `id_lote`, `id_tipo` o `ubicacion_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Ubicaciones de lote]
+      operationId: createLoteUbicacion
+      summary: Asocia un lote con una ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/LoteUbicacion'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorLoteUbicacion'
+        '409':
+          description: |
+            `duplicate` si el trío lote, tipo y ubicación ya existe.
+            `destino_ya_definido` si el lote ya tiene un DESTINO.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes-ubicaciones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Ubicaciones de lote]
+      operationId: getLoteUbicacion
+      summary: Obtiene una relación lote-ubicación
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteUbicacion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Ubicaciones de lote]
+      operationId: updateLoteUbicacion
+      summary: Reemplaza una relación lote-ubicación
+      requestBody:
+        $ref: '#/components/requestBodies/LoteUbicacion'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorLoteUbicacion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`duplicate` o `destino_ya_definido`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Ubicaciones de lote]
+      operationId: deleteLoteUbicacion
+      summary: Elimina una relación lote-ubicación
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes/{id}/ubicaciones:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Ubicaciones de lote]
+      operationId: listUbicacionesDeLote
+      summary: Lista las ubicaciones de un lote
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLoteUbicacionLista'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /recepciones:
+    get:
+      tags: [Recepciones]
+      operationId: listRecepciones
+      summary: Lista las recepciones
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdExpedicion'
+        - $ref: '#/components/parameters/UbicacionId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLista'
+        '400':
+          description: Paginación, `id_expedicion` o `ubicacion_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Recepciones]
+      operationId: createRecepcion
+      summary: Crea una recepción
+      requestBody:
+        $ref: '#/components/requestBodies/Recepcion'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcion'
+        '400':
+          $ref: '#/components/responses/ErrorRecepcion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /recepciones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Recepciones]
+      operationId: getRecepcion
+      summary: Obtiene una recepción
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Recepciones]
+      operationId: updateRecepcion
+      summary: Reemplaza una recepción
+      requestBody:
+        $ref: '#/components/requestBodies/Recepcion'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcion'
+        '400':
+          $ref: '#/components/responses/ErrorRecepcion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Recepciones]
+      operationId: deleteRecepcion
+      summary: Elimina una recepción
+      description: Responde `409` si tiene lotes recibidos.
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /recepciones/{id}/lotes:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Lotes recibidos]
+      operationId: listLotesDeRecepcion
+      summary: Lista los lotes de una recepción
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLoteLista'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones/{id}/recepciones:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Recepciones]
+      operationId: listRecepcionesDeExpedicion
+      summary: Lista las recepciones de una expedición
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLista'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /recepciones-lotes:
+    get:
+      tags: [Lotes recibidos]
+      operationId: listRecepcionesLotes
+      summary: Lista los lotes recibidos
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdRecepcion'
+        - $ref: '#/components/parameters/IdLote'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLoteLista'
+        '400':
+          description: Paginación, `id_recepcion` o `id_lote` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Lotes recibidos]
+      operationId: createRecepcionLote
+      summary: Recibe un lote
+      requestBody:
+        $ref: '#/components/requestBodies/RecepcionLote'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLote'
+        '400':
+          $ref: '#/components/responses/ErrorRecepcionLote'
+        '409':
+          description: El lote ya fue recibido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                data: null
+                _metadata: {}
+                error:
+                  error: lote_ya_recibido
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /recepciones-lotes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Lotes recibidos]
+      operationId: getRecepcionLote
+      summary: Obtiene un lote recibido
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLote'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Lotes recibidos]
+      operationId: updateRecepcionLote
+      summary: Reemplaza un lote recibido
+      description: Si `OBSERVACIONES` no viene, queda `null`.
+      requestBody:
+        $ref: '#/components/requestBodies/RecepcionLote'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRecepcionLote'
+        '400':
+          $ref: '#/components/responses/ErrorRecepcionLote'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: El lote ya está recibido en otra fila.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Lotes recibidos]
+      operationId: deleteRecepcionLote
+      summary: Quita un lote de la recepción
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
 components:
   securitySchemes:
     BearerAuth:
@@ -1421,6 +2114,38 @@ components:
       in: query
       required: false
       description: Filtra lotes hijos por identificador del lote padre. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    PadreIdArbol:
+      name: padre_id
+      in: query
+      required: false
+      description: |
+        Filtra por padre. Entero positivo, o `raiz` para filas con `PADRE_ID` nulo.
+      schema:
+        type: string
+    IdCategoria:
+      name: id_categoria
+      in: query
+      required: false
+      description: Filtra por categoría de ubicación. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    UbicacionId:
+      name: ubicacion_id
+      in: query
+      required: false
+      description: Filtra por `UBICACION_ID`. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    IdRecepcion:
+      name: id_recepcion
+      in: query
+      required: false
+      description: Filtra por recepción. Entero positivo sin ceros a la izquierda.
       schema:
         type: string
         pattern: '^[1-9]\d*$'
@@ -1650,6 +2375,64 @@ components:
             CAPACIDAD_VOLUMEN_M3: 80
             ID_ESTATUS: 1
             ACTIVO: true
+    UbicacionCategoria:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UbicacionCategoriaEntrada'
+          example:
+            PADRE_ID: null
+            CODIGO: nave
+            NOMBRE: Nave
+            ACTIVO: true
+    Ubicacion:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UbicacionEntrada'
+          example:
+            ID_CATEGORIA: 1
+            PADRE_ID: null
+            CODIGO: PLANTA
+            NOMBRE: Planta
+            ACTIVO: true
+    LoteUbicacion:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoteUbicacionEntrada'
+          example:
+            ID_LOTE: 1
+            UBICACION_ID: 1
+            ID_TIPO: 2
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
+    Recepcion:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RecepcionEntrada'
+          example:
+            ID_EXPEDICION: 1
+            UBICACION_ID: 1
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
+    RecepcionLote:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RecepcionLoteEntrada'
+          example:
+            ID_RECEPCION: 1
+            ID_LOTE: 1
+            OBSERVACIONES: null
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
   responses:
     NoAutorizado:
       description: |
@@ -2156,6 +2939,55 @@ components:
                 _metadata: {}
                 error:
                   error: duplicate_placas
+    ErrorUbicacionCategoria:
+      description: |
+        Cuerpo inválido, padre inexistente o ciclo en el árbol.
+        `error.error` puede ser `invalid_body`, `invalid_codigo`, `invalid_nombre`,
+        `invalid_activo`, `invalid_padre_id` o `ciclo_padre`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorUbicacion:
+      description: |
+        Cuerpo inválido, categoría o padre inexistente, o ciclo en el árbol.
+        `error.error` puede ser `invalid_body`, `invalid_codigo`, `invalid_nombre`,
+        `invalid_activo`, `invalid_id_categoria`, `invalid_padre_id` o `ciclo_padre`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorLoteUbicacion:
+      description: |
+        El lote, la ubicación, el tipo o el usuario no son válidos.
+        `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_ubicacion_id`,
+        `invalid_id_tipo`, `invalid_usuario_id`, `invalid_id_origen_usuario`
+        o `invalid_usuario_origen`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorRecepcion:
+      description: |
+        La expedición, la ubicación o el usuario no son válidos.
+        `error.error` puede ser `invalid_body`, `invalid_id_expedicion`,
+        `invalid_ubicacion_id`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
+        `invalid_usuario_origen` o `invalid_recepcion`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorRecepcionLote:
+      description: |
+        El lote no se puede recibir.
+        `sin_destino` si no tiene DESTINO.
+        `destino_no_coincide` si el DESTINO no es la ubicación de la recepción.
+        `invalid_id_lote` si el lote tiene padre o no existe.
+        `invalid_observaciones` si el texto queda vacío.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
@@ -3218,3 +4050,356 @@ components:
         path:
           type: string
           description: Presente solo cuando la ruta no existe.
+    UbicacionCategoria:
+      type: object
+      required: [ID, PADRE_ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UbicacionCategoriaEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+    Ubicacion:
+      type: object
+      required: [ID, ID_CATEGORIA, PADRE_ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_CATEGORIA:
+          type: integer
+          minimum: 1
+          description: Referencia a `UBICACIONES_CATEGORIAS`.
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UbicacionEntrada:
+      type: object
+      required: [ID_CATEGORIA, CODIGO, NOMBRE]
+      properties:
+        ID_CATEGORIA:
+          type: integer
+          minimum: 1
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+    LoteUbicacion:
+      type: object
+      required: [ID, ID_LOTE, UBICACION_ID, ID_TIPO, USUARIO_ID, ID_ORIGEN_USUARIO, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+          description: Referencia a `UBICACIONES`.
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a `LOTES_UBICACIONES_TIPOS`.
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    LoteUbicacionEntrada:
+      type: object
+      required: [ID_LOTE, UBICACION_ID, ID_TIPO]
+      properties:
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+    Recepcion:
+      type: object
+      required: [ID, ID_EXPEDICION, UBICACION_ID, USUARIO_ID, ID_ORIGEN_USUARIO, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_EXPEDICION:
+          type: integer
+          minimum: 1
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    RecepcionEntrada:
+      type: object
+      required: [ID_EXPEDICION, UBICACION_ID]
+      properties:
+        ID_EXPEDICION:
+          type: integer
+          minimum: 1
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+    RecepcionLote:
+      type: object
+      required: [ID, ID_RECEPCION, ID_LOTE, OBSERVACIONES, USUARIO_ID, ID_ORIGEN_USUARIO, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_RECEPCION:
+          type: integer
+          minimum: 1
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        OBSERVACIONES:
+          type: string
+          nullable: true
+          minLength: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    RecepcionLoteEntrada:
+      type: object
+      required: [ID_RECEPCION, ID_LOTE]
+      properties:
+        ID_RECEPCION:
+          type: integer
+          minimum: 1
+        ID_LOTE:
+          type: integer
+          minimum: 1
+        OBSERVACIONES:
+          type: string
+          nullable: true
+          minLength: 1
+        USUARIO_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_ORIGEN_USUARIO:
+          type: integer
+          nullable: true
+          minimum: 1
+    RespuestaUbicacionCategoria:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UbicacionCategoria'
+    RespuestaUbicacionCategoriaLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UbicacionCategoria'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaUbicacion:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Ubicacion'
+    RespuestaUbicacionLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Ubicacion'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaLoteUbicacion:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoteUbicacion'
+    RespuestaLoteUbicacionLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoteUbicacion'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaRecepcion:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Recepcion'
+    RespuestaRecepcionLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Recepcion'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaRecepcionLote:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RecepcionLote'
+    RespuestaRecepcionLoteLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecepcionLote'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'

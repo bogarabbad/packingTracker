@@ -15,6 +15,7 @@ const TABLES = new Set([
   'LOTES_TIPOS',
   'UNIDADES',
   'REFERENCIAS_TIPOS',
+  'LOTES_UBICACIONES_TIPOS',
 ]);
 const FIELDS = '"ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_SEMILLA"';
 const EXTRA = {
