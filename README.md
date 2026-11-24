@@ -8,18 +8,19 @@ Version `0.1.0` (from `package.json` and `openapi.yaml`).
 
 packingTracker records merchandise as it is packed into lots and loaded onto a transport unit (a truck or trailer). Other systems are expected to consume the HTTP API when they need to register or query that load.
 
-The service is **agnostic**: it does not assume a specific customer, warehouse, or merchandise format. Departure locations and products are referenced by external identifiers, not by catalogs owned by this service.
+The service is **agnostic**: it does not assume a specific customer, warehouse, or merchandise format. Products are referenced by `CLAVE_PRODUCTO`. Locations are a catalog in this service (`UBICACIONES` and `UBICACIONES_CATEGORIAS`).
 
 The packing process modeled in the database is:
 
 1. **Lots (`LOTES`)** form a packing tree through `PADRE_ID`. Seed lot types are *caja* (box) and *tambo* (drum), which are **final** types and may contain products, and *tarima* (pallet), which is **not** final and may contain final lots (a box or drum can sit on a pallet).
 2. **Products (`LOTES_PRODUCTOS`)** belong only to a final lot. An external product is identified only by `CLAVE_PRODUCTO`, plus a quantity and a unit of measure allowed for that lot type. Seed measure units are *unidad* (whole units), *litro*, and *kilo*.
 3. **Lot references (`LOTES_REFERENCIAS`)** attach an external identifier and optional description to a lot, classified by `REFERENCIAS_TIPOS`. The seed type is `PACKING`. There is no column or table named `FOLIO` in the current schema; a packing-list folio would be stored as a reference of this kind.
-4. **Expeditions (`EXPEDICIONES`)** represent a dispatch on one transport unit. An expedition is open while `FECHA_CIERRE` is null, and closed once that timestamp is set. A unit may have only one open expedition at a time.
+4. **Expeditions (`EXPEDICIONES`)** represent a dispatch on one transport unit. An expedition is open while `FECHA_CIERRE` is null, and closed once that timestamp is set. A unit may have only one open expedition at a time. `UBICACION_SALIDA_ID` optionally references `UBICACIONES`. `ID_UBICACION_SALIDA` remains an external integer.
 5. **Loadings (`EXPEDICIONES_LOTES`)** embark a lot on an expedition. Only lots without a parent (loose lots) can be embarked, a lot can belong to only one expedition, and lots cannot be added or removed after the expedition is closed. A final lot is not assigned directly to the transport unit (`ID_UNIDAD`); only a non-final lot such as a pallet may point at the unit.
 6. **Transport units (`UNIDADES_TRANSPORTE`)** are catalogued with type, plates, optional economic number and capacities, and a status. Seed types are tractocamión, torton, rabón, camioneta, and remolque. Seed statuses are disponible, cargando, en tránsito, mantenimiento, and fuera de servicio.
+7. **Receptions (`RECEPCIONES`)** link an expedition (`ID_EXPEDICION`) to the location where it is received (`UBICACION_ID`). There is no HTTP API for this table.
 
-Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot references, expeditions, and loadings. Origin `1` (`interno`) means an internal user in `USUARIOS`. Any other origin is treated as external. Every table stores `CREADO_EN` and `ACTUALIZADO_EN`.
+Audit fields `USUARIO_ID` and `ID_ORIGEN_USUARIO` travel together on lots, lot references, expeditions, loadings, and receptions. Origin `1` (`interno`) means an internal user in `USUARIOS`. Any other origin is treated as external. Every table stores `CREADO_EN` and `ACTUALIZADO_EN`.
 
 ## Features
 
@@ -62,7 +63,7 @@ There is no user-management API (only login against `USUARIOS`). `hashPassword` 
 │   ├── create_database.sql   # first-time role and empty database (run as a superuser)
 │   ├── init.sql              # current schema and catalog seed for a new database
 │   ├── seed.sql              # optional sample transport units
-│   └── migrations/           # incremental SQL migrations (0001–0020)
+│   └── migrations/           # incremental SQL migrations (0001–0024)
 ├── src/
 │   ├── server.js             # process entry
 │   ├── app.js
@@ -118,9 +119,7 @@ Optional sample transport units:
 psql -U packing -d packing_tracker -f db/seed.sql
 ```
 
-`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version.
-
-> The comment at the top of `init.sql` still says the script includes through migration `0018`. The file itself already contains the later schema from migrations `0019` (products identified only by `CLAVE_PRODUCTO`) and `0020` (only parentless lots may be embarked).
+`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0024`.
 
 ### Configuration
 
@@ -265,7 +264,7 @@ Common list query parameters:
 - Lots: `padre_id`, `id_tipo`, `id_unidad`, `es_final`, `embarcable` (`true` means no parent and not already embarked)
 - Lot products and lot references: `id_lote`
 - Lot-type measures: `id_tipo`
-- Expeditions: `id_unidad`, `abierta`, `q` (matches `CLAVE_UBICACION_SALIDA`)
+- Expeditions: `id_unidad`, `abierta`, `q` (matches `CODIGO` or `NOMBRE` of the location referenced by `UBICACION_SALIDA_ID`)
 - Loadings: `id_expedicion`, `id_lote`
 - Transport units: `q` (code, plates, economic number, brand, model), `id_tipo`, `id_estatus`, `activo`
 

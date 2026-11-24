@@ -15,7 +15,7 @@ const FIELDS = [
   'ID_UNIDAD',
   'FECHA_CIERRE',
   'ID_UBICACION_SALIDA',
-  'CLAVE_UBICACION_SALIDA',
+  'UBICACION_SALIDA_ID',
   'USUARIO_ID',
   'ID_ORIGEN_USUARIO',
   'CREADO_EN',
@@ -44,18 +44,6 @@ function optionalInteger(value, error) {
   }
 
   return requiredInteger(value, error);
-}
-
-function optionalText(value, error) {
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw httpError(400, error);
-  }
-
-  return value.trim();
 }
 
 function optionalTimestamptz(value, error) {
@@ -96,9 +84,9 @@ function parseBody(body) {
       body.ID_UBICACION_SALIDA,
       'invalid_id_ubicacion_salida',
     ),
-    CLAVE_UBICACION_SALIDA: optionalText(
-      body.CLAVE_UBICACION_SALIDA,
-      'invalid_clave_ubicacion_salida',
+    UBICACION_SALIDA_ID: optionalInteger(
+      body.UBICACION_SALIDA_ID,
+      'invalid_ubicacion_salida_id',
     ),
     USUARIO_ID: usuarioId,
     ID_ORIGEN_USUARIO: idOrigenUsuario,
@@ -115,7 +103,7 @@ function mapRow(row) {
     ID_UNIDAD: Number(row.ID_UNIDAD),
     FECHA_CIERRE: row.FECHA_CIERRE,
     ID_UBICACION_SALIDA: mapNumber(row.ID_UBICACION_SALIDA),
-    CLAVE_UBICACION_SALIDA: row.CLAVE_UBICACION_SALIDA,
+    UBICACION_SALIDA_ID: mapNumber(row.UBICACION_SALIDA_ID),
     USUARIO_ID: mapNumber(row.USUARIO_ID),
     ID_ORIGEN_USUARIO: mapNumber(row.ID_ORIGEN_USUARIO),
     CREADO_EN: row.CREADO_EN,
@@ -138,6 +126,9 @@ function translate(err) {
   if (err.code === '23503') {
     if (err.constraint === 'EXPEDICIONES_ID_UNIDAD_FK') {
       throw httpError(400, 'invalid_id_unidad');
+    }
+    if (err.constraint === 'EXPEDICIONES_UBICACION_SALIDA_ID_FK') {
+      throw httpError(400, 'invalid_ubicacion_salida_id');
     }
     if (err.constraint === 'EXPEDICIONES_ID_ORIGEN_USUARIO_FK') {
       throw httpError(400, 'invalid_id_origen_usuario');
@@ -166,9 +157,6 @@ function translate(err) {
     }
     if (err.constraint === 'EXPEDICIONES_ID_UBICACION_SALIDA_CHK') {
       throw httpError(400, 'invalid_id_ubicacion_salida');
-    }
-    if (err.constraint === 'EXPEDICIONES_CLAVE_UBICACION_SALIDA_CHK') {
-      throw httpError(400, 'invalid_clave_ubicacion_salida');
     }
 
     const message = typeof err.message === 'string' ? err.message : '';
@@ -207,7 +195,15 @@ router.get('/', async (req, res) => {
     if (q !== null) {
       params.push(likeContains(q));
       filters.push(
-        `COALESCE("CLAVE_UBICACION_SALIDA", '') ILIKE $${params.length} ESCAPE '\\'`,
+        `EXISTS (
+           SELECT 1
+           FROM "UBICACIONES" AS ubicacion
+           WHERE ubicacion."ID" = "EXPEDICIONES"."UBICACION_SALIDA_ID"
+             AND (
+               ubicacion."CODIGO" ILIKE $${params.length} ESCAPE '\\'
+               OR ubicacion."NOMBRE" ILIKE $${params.length} ESCAPE '\\'
+             )
+         )`,
       );
     }
 
@@ -258,7 +254,7 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO "EXPEDICIONES" (
          "ID_UNIDAD", "FECHA_CIERRE", "ID_UBICACION_SALIDA",
-         "CLAVE_UBICACION_SALIDA", "USUARIO_ID", "ID_ORIGEN_USUARIO"
+         "UBICACION_SALIDA_ID", "USUARIO_ID", "ID_ORIGEN_USUARIO"
        )
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${FIELDS}`,
@@ -266,7 +262,7 @@ router.post('/', async (req, res) => {
         record.ID_UNIDAD,
         record.FECHA_CIERRE,
         record.ID_UBICACION_SALIDA,
-        record.CLAVE_UBICACION_SALIDA,
+        record.UBICACION_SALIDA_ID,
         record.USUARIO_ID,
         record.ID_ORIGEN_USUARIO,
       ],
@@ -286,7 +282,7 @@ router.put('/:id', async (req, res) => {
        SET "ID_UNIDAD" = $1,
            "FECHA_CIERRE" = $2,
            "ID_UBICACION_SALIDA" = $3,
-           "CLAVE_UBICACION_SALIDA" = $4,
+           "UBICACION_SALIDA_ID" = $4,
            "USUARIO_ID" = $5,
            "ID_ORIGEN_USUARIO" = $6
        WHERE "ID" = $7
@@ -295,7 +291,7 @@ router.put('/:id', async (req, res) => {
         record.ID_UNIDAD,
         record.FECHA_CIERRE,
         record.ID_UBICACION_SALIDA,
-        record.CLAVE_UBICACION_SALIDA,
+        record.UBICACION_SALIDA_ID,
         record.USUARIO_ID,
         record.ID_ORIGEN_USUARIO,
         id,

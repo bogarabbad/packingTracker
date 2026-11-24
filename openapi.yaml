@@ -969,6 +969,8 @@ paths:
       tags: [Expediciones]
       operationId: listExpediciones
       summary: Lista las expediciones
+      description: |
+        `q` busca en el `CODIGO` o el `NOMBRE` de la ubicación referenciada por `UBICACION_SALIDA_ID`.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
@@ -1063,7 +1065,7 @@ paths:
       tags: [Expediciones]
       operationId: deleteExpedicion
       summary: Elimina una expedición
-      description: Responde `409` si tiene lotes embarcados.
+      description: Responde `409` si tiene lotes embarcados o recepciones.
       responses:
         '200':
           $ref: '#/components/responses/Eliminado'
@@ -1556,7 +1558,7 @@ components:
     Expedicion:
       required: true
       description: |
-        `FECHA_CIERRE`, `ID_UBICACION_SALIDA`, `CLAVE_UBICACION_SALIDA`,
+        `FECHA_CIERRE`, `ID_UBICACION_SALIDA`, `UBICACION_SALIDA_ID`,
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
@@ -1568,7 +1570,7 @@ components:
             ID_UNIDAD: 1
             FECHA_CIERRE: null
             ID_UBICACION_SALIDA: null
-            CLAVE_UBICACION_SALIDA: null
+            UBICACION_SALIDA_ID: null
             USUARIO_ID: 1
             ID_ORIGEN_USUARIO: 1
     ExpedicionLote:
@@ -1931,7 +1933,7 @@ components:
       description: |
         El cuerpo no cumple las reglas de la expedición.
         `error.error` puede ser `invalid_body`, `invalid_id_unidad`, `invalid_fecha_cierre`,
-        `invalid_id_ubicacion_salida`, `invalid_clave_ubicacion_salida`,
+        `invalid_id_ubicacion_salida`, `invalid_ubicacion_salida_id`,
         `invalid_usuario_id`, `invalid_id_origen_usuario`, `invalid_usuario_origen`
         o `invalid_expedicion`.
       content:
@@ -2651,7 +2653,7 @@ components:
         - ID_UNIDAD
         - FECHA_CIERRE
         - ID_UBICACION_SALIDA
-        - CLAVE_UBICACION_SALIDA
+        - UBICACION_SALIDA_ID
         - USUARIO_ID
         - ID_ORIGEN_USUARIO
         - CREADO_EN
@@ -2675,11 +2677,11 @@ components:
           nullable: true
           minimum: 1
           description: Identificador externo de la ubicación de salida.
-        CLAVE_UBICACION_SALIDA:
-          type: string
+        UBICACION_SALIDA_ID:
+          type: integer
           nullable: true
-          minLength: 1
-          description: Clave externa de la ubicación de salida.
+          minimum: 1
+          description: Referencia a `UBICACIONES`. Nulo si la expedición no indica ubicación de salida.
         USUARIO_ID:
           type: integer
           nullable: true
@@ -2717,10 +2719,10 @@ components:
           type: integer
           nullable: true
           minimum: 1
-        CLAVE_UBICACION_SALIDA:
-          type: string
+        UBICACION_SALIDA_ID:
+          type: integer
           nullable: true
-          minLength: 1
+          minimum: 1
         USUARIO_ID:
           type: integer
           nullable: true
