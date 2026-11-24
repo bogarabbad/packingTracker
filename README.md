@@ -59,6 +59,7 @@ There is no user-management API (only login against `USUARIOS`). `hashPassword` 
 .
 ├── Dockerfile
 ├── docker-compose.yml
+├── docker-compose.prod.yml
 ├── openapi.yaml
 ├── package.json
 ├── db/
@@ -139,10 +140,9 @@ Copy `.env.example` to `.env`. Compose injects these values into the app contain
 | `JWT_EXPIRES_IN` | `28800` | Access token lifetime in seconds (8 hours) |
 | `JWT_ISSUER` | `packing-tracker` | JWT issuer claim |
 | `JWT_AUDIENCE` | `packing-tracker-api` | JWT audience claim |
+| `PACKING_HOST` | `packing.bogarabbad.me` | Example public hostname for the production Traefik routers. The local Compose file does not read it. Replace it on the server. |
 
 `NODE_ENV` is set to `production` in `docker-compose.yml`. It is not listed in `.env.example`.
-
-**Production hosting, TLS, reverse proxy, backups, and secrets management are not documented in this repository.**
 
 ### Run with Docker
 
@@ -161,6 +161,20 @@ Stop with `docker compose down`.
 The Compose network is named `packing-tracker`. Another Compose project can attach to that external network and call the service as `packing-tracker` on port `3000`, without going through the host.
 
 The image compiles Tailwind CSS at build time, runs as a non-root `app` user, and defines a Docker `HEALTHCHECK` against `GET /health`.
+
+### Deployment
+
+A push to `master`, or a manual run of the `Deploy` workflow, copies the repository to `/opt/packingTracker` on the VPS and runs `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans`. The workflow uses OpenSSH and `rsync`. It does not copy `.env`.
+
+Repository Actions secrets (the user and the host may instead be Actions variables):
+
+- `SV01_SSH_KEY`
+- `SV01_USER`
+- `SV01_IP_ADDRESS`
+
+`/opt/packingTracker/.env` must already exist on the server. It supplies `JWT_SECRET`, the PostgreSQL settings, and `PACKING_HOST`. Set `PGHOST=host.docker.internal` there so the container reaches Postgres (`infra-postgres`) on the host. `PACKING_HOST` is only the hostname Traefik matches, for example `packing.bogarabbad.me`.
+
+The database, the schema, and DNS are managed separately. This repository does not create them. Production Compose publishes no host ports and does not start a second Traefik. The VPS proxy already listens on 80 and 443.
 
 ### Run locally (without Docker)
 

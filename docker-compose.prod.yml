@@ -1,0 +1,25 @@
+# El VPS ya tiene Traefik v3 en los puertos 80 y 443, con network_mode host.
+# Este archivo no levanta otro proxy ni publica puertos.
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# PostgreSQL es infra-postgres en el host. PGHOST=host.docker.internal llega ahí.
+
+services:
+  packing-tracker:
+    restart: always
+    ports: !override []
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels: !override
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.packingtracker-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.packingtracker-https.redirectscheme.permanent=true"
+      - "traefik.http.routers.packingtracker-http.rule=Host(`${PACKING_HOST:?Define PACKING_HOST en el archivo .env}`)"
+      - "traefik.http.routers.packingtracker-http.entrypoints=web"
+      - "traefik.http.routers.packingtracker-http.middlewares=packingtracker-https"
+      - "traefik.http.routers.packingtracker-http.service=packingtracker"
+      - "traefik.http.routers.packingtracker.rule=Host(`${PACKING_HOST:?Define PACKING_HOST en el archivo .env}`)"
+      - "traefik.http.routers.packingtracker.entrypoints=websecure"
+      - "traefik.http.routers.packingtracker.tls=true"
+      - "traefik.http.routers.packingtracker.tls.certresolver=letsencrypt"
+      - "traefik.http.services.packingtracker.loadbalancer.server.port=3000"

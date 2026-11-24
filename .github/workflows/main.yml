@@ -1,1 +1,92 @@
+# Secretos de SV01: SV01_IP_ADDRESS, SV01_USER, SV01_SSH_KEY.
+# En el VPS, /opt/packingTracker/.env debe existir y no se copia desde el repositorio.
+name: Deploy
 
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-packing-tracker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_PATH: /opt/packingTracker
+
+jobs:
+  deploy:
+    name: Desplegar en SV01
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Preparar la llave SSH
+        env:
+          SSH_KEY: ${{ secrets.SV01_SSH_KEY }}
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          if [ "$(printf '%s' "$SSH_KEY" | wc -l)" -eq 0 ]; then
+            printf '%b\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/sv01_key
+          else
+            printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/sv01_key
+          fi
+          chmod 600 ~/.ssh/sv01_key
+          echo "Huella de la llave que usa Actions:"
+          ssh-keygen -lf ~/.ssh/sv01_key
+
+      - name: Copiar y levantar producción
+        env:
+          SSH_USER: ${{ secrets.SV01_USER || vars.SV01_USER }}
+          SSH_HOST: ${{ secrets.SV01_IP_ADDRESS || vars.SV01_IP_ADDRESS }}
+        run: |
+          set -eu
+          user=$(printf '%s' "$SSH_USER" | tr -d '[:space:]')
+          host=$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')
+          missing=0
+          if [ -z "$user" ]; then
+            echo "No llega SV01_USER."
+            missing=1
+          fi
+          if [ -z "$host" ]; then
+            echo "No llega SV01_IP_ADDRESS."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Tienen que estar en Settings, Secrets and variables, Actions, en Repository secrets o en Variables."
+            echo "Si están dentro de un Environment, este workflow no los ve."
+            exit 1
+          fi
+          if [ ! -s ~/.ssh/sv01_key ]; then
+            echo "No quedó escrita la llave privada."
+            exit 1
+          fi
+          target="${user}@${host}"
+          ssh_cmd="ssh -i $HOME/.ssh/sv01_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -p 22"
+          $ssh_cmd "$target" "mkdir -p '$DEPLOY_PATH'"
+          rsync -az --delete \
+            --exclude '.env' \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            -e "$ssh_cmd" \
+            ./ "${target}:${DEPLOY_PATH}/"
+          $ssh_cmd "$target" "DEPLOY_PATH='$DEPLOY_PATH' bash -s" << 'EOF'
+          set -eu
+          cd "$DEPLOY_PATH"
+          if [ ! -f .env ]; then
+            echo "Falta $DEPLOY_PATH/.env en el servidor."
+            echo "Créalo con PACKING_HOST, JWT_SECRET, PGHOST=host.docker.internal, PGPORT, PGDATABASE, PGUSER y PGPASSWORD antes de volver a desplegar."
+            echo "La base, el esquema y el DNS no los crea este workflow."
+            exit 1
+          fi
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+          docker image prune -f
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          EOF
