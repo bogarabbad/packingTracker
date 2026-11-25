@@ -25,7 +25,7 @@
           <form id="rt-filters" class="ui-filters">
             <div class="flex flex-col gap-2">
               <label class="ui-label" for="rt-filter-q">Buscar</label>
-              <input class="ui-input" id="rt-filter-q" name="q" placeholder="Código o nombre" autocomplete="off" />
+              <input class="ui-input" id="rt-filter-q" name="q" placeholder="Código, clave o nombre" autocomplete="off" />
             </div>
             <div class="flex flex-col gap-2">
               <label class="ui-label" for="rt-filter-activo">Activo</label>
@@ -48,6 +48,7 @@
                   <thead>
                     <tr>
                       <th scope="col">Código</th>
+                      <th scope="col">Clave</th>
                       <th scope="col">Nombre</th>
                       <th scope="col">Activo</th>
                       <th scope="col" class="text-right">Acciones</th>
@@ -55,7 +56,7 @@
                   </thead>
                   <tbody id="rt-tbody">
                     <tr>
-                      <td colspan="4" class="text-muted-foreground">Sin registros.</td>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -73,7 +74,7 @@
       </div>
     </div>
 
-    <dialog id="rt-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="rt-form-title">
+    <dialog id="rt-form-dialog" class="ui-dialog-panel" aria-labelledby="rt-form-title">
       <header class="flex flex-col gap-2 text-left">
         <h2 id="rt-form-title" class="ui-dialog-title">Nuevo tipo</h2>
       </header>
@@ -82,6 +83,11 @@
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="rt-codigo">Código</label>
           <input class="ui-input" id="rt-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="rt-clave">Clave</label>
+          <input class="ui-input" id="rt-clave" name="CLAVE" required maxlength="8" autocomplete="off" />
+          <p class="text-xs text-muted-foreground">Abreviatura única (máx. 8). Packing usa P.</p>
         </div>
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="rt-nombre">Nombre</label>
@@ -99,7 +105,7 @@
       </form>
     </dialog>
 
-    <dialog id="rt-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="rt-delete-title">
+    <dialog id="rt-delete-dialog" class="ui-dialog-panel" aria-labelledby="rt-delete-title">
       <header class="flex flex-col gap-2 text-left">
         <h2 id="rt-delete-title" class="ui-dialog-title">Eliminar tipo</h2>
         <p class="ui-dialog-description" id="rt-delete-text">¿Eliminar este tipo de referencia?</p>

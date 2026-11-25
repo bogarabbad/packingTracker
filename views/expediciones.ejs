@@ -81,7 +81,7 @@
       </div>
     </div>
 
-    <dialog id="ex-form-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ex-form-title">
+    <dialog id="ex-form-dialog" class="ui-dialog-panel" aria-labelledby="ex-form-title">
       <header class="flex flex-col gap-2 text-left">
         <h2 id="ex-form-title" class="ui-dialog-title">Nueva expedición</h2>
       </header>
@@ -112,80 +112,7 @@
       </form>
     </dialog>
 
-    <dialog id="ex-detail-dialog" class="ui-dialog-panel ui-dialog-wide backdrop:bg-black/50" aria-labelledby="ex-detail-title">
-      <header class="flex flex-col gap-2 text-left">
-        <h2 id="ex-detail-title" class="ui-dialog-title">Detalle de expedición</h2>
-        <p id="ex-detail-subtitle" class="ui-dialog-description"></p>
-      </header>
-
-      <div class="mt-4 grid gap-6">
-        <div class="flex flex-wrap gap-2" id="ex-detail-badges"></div>
-
-        <dl class="grid gap-3 sm:grid-cols-2">
-          <div>
-            <dt class="text-xs text-muted-foreground">Unidad</dt>
-            <dd id="ex-detail-unidad" class="text-sm font-medium"></dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted-foreground">Creada</dt>
-            <dd id="ex-detail-creada" class="text-sm font-medium"></dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted-foreground">Cierre</dt>
-            <dd id="ex-detail-cierre" class="text-sm font-medium"></dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted-foreground">Ubicación salida</dt>
-            <dd id="ex-detail-ubicacion" class="text-sm font-medium"></dd>
-          </div>
-        </dl>
-
-        <section class="grid gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold">Lotes embarcados</h3>
-            <p id="ex-lotes-status" class="text-sm text-muted-foreground"></p>
-          </div>
-          <form id="ex-lote-form" class="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <div class="flex flex-col gap-2">
-              <label class="ui-label" for="ex-lote-id">Lote suelto disponible</label>
-              <select class="ui-input" id="ex-lote-id" required></select>
-            </div>
-            <div class="flex items-end">
-              <button type="submit" id="ex-lote-submit" class="ui-btn ui-btn-default ui-btn-md">
-                Embarcar
-              </button>
-            </div>
-          </form>
-          <p id="ex-lote-error" class="hidden text-sm text-destructive" role="alert"></p>
-          <p id="ex-lote-hint" class="text-sm text-muted-foreground">
-            Solo lotes sin padre y que aún no estén en otra expedición.
-          </p>
-          <div class="ui-table-wrap">
-            <table class="ui-table" aria-label="Lotes embarcados">
-              <thead>
-                <tr>
-                  <th scope="col">Lote</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Embarcado</th>
-                  <th scope="col" class="text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="ex-lotes-tbody">
-                <tr><td colspan="4" class="text-muted-foreground">Sin lotes.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button type="button" id="ex-detail-close" class="ui-btn ui-btn-outline ui-btn-md">Cerrar</button>
-        <button type="button" id="ex-detail-cerrar" class="ui-btn ui-btn-outline ui-btn-md">Cerrar expedición</button>
-        <button type="button" id="ex-detail-edit" class="ui-btn ui-btn-default ui-btn-md">Editar</button>
-      </footer>
-    </dialog>
-
-    <dialog id="ex-delete-dialog" class="ui-dialog-panel backdrop:bg-black/50" aria-labelledby="ex-delete-title">
+    <dialog id="ex-delete-dialog" class="ui-dialog-panel" aria-labelledby="ex-delete-title">
       <header class="flex flex-col gap-2 text-left">
         <h2 id="ex-delete-title" class="ui-dialog-title">Eliminar expedición</h2>
         <p class="ui-dialog-description" id="ex-delete-text">¿Eliminar esta expedición?</p>

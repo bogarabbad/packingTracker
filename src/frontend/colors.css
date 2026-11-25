@@ -1,0 +1,83 @@
+/* Paleta de la interfaz.
+   Edita solo este archivo para cambiar los colores de toda la aplicación.
+   Cada valor puede ser oklch(), rgb(), hsl() o hexadecimal.
+   No renombres las variables: los componentes las consumen por estos nombres.
+   :root es el tema claro. .dark es el tema oscuro. */
+
+:root {
+  /* Fondo de la página */
+  --background: oklch(1 0 0);
+  /* Texto principal */
+  --foreground: oklch(0.145 0 0);
+
+  /* Tarjetas, tablas y avisos */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+
+  /* Menús flotantes */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  /* Botón y etiqueta principal */
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+
+  /* Botón secundario */
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  /* Fondos suaves y texto de ayuda */
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+
+  /* Resalte al pasar el cursor y elemento activo del menú */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  /* Acciones de borrar y mensajes de error */
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+
+  /* Bordes, campos y anillo de foco */
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /* Velo detrás de un diálogo */
+  --overlay: oklch(0 0 0 / 50%);
+  /* Velo del menú lateral en pantallas angostas */
+  --overlay-sidebar: oklch(0 0 0 / 40%);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  --overlay: oklch(0 0 0 / 50%);
+  --overlay-sidebar: oklch(0 0 0 / 40%);
+}

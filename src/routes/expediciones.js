@@ -235,6 +235,178 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/:id/carga', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const expedicionResult = await pool.query(
+      `SELECT ${FIELDS} FROM "EXPEDICIONES" WHERE "ID" = $1`,
+      [id],
+    );
+    const expedicion = expedicionResult.rows[0];
+    if (!expedicion) {
+      throw httpError(404, 'not_found');
+    }
+
+    const lotesResult = await pool.query(
+      `WITH RECURSIVE cargo AS (
+         SELECT
+           l."ID",
+           l."ID_TIPO",
+           l."PADRE_ID",
+           l."ID_UNIDAD",
+           el."ID" AS "EMBARQUE_ID",
+           el."EMBARCADO_EN",
+           true AS "EMBARCADO_DIRECTO"
+         FROM "EXPEDICIONES_LOTES" AS el
+         JOIN "LOTES" AS l ON l."ID" = el."ID_LOTE"
+         WHERE el."ID_EXPEDICION" = $1
+         UNION ALL
+         SELECT
+           hijo."ID",
+           hijo."ID_TIPO",
+           hijo."PADRE_ID",
+           hijo."ID_UNIDAD",
+           NULL::integer AS "EMBARQUE_ID",
+           NULL::timestamptz AS "EMBARCADO_EN",
+           false AS "EMBARCADO_DIRECTO"
+         FROM "LOTES" AS hijo
+         JOIN cargo AS c ON hijo."PADRE_ID" = c."ID"
+       )
+       SELECT DISTINCT ON (cargo."ID")
+         cargo."ID",
+         cargo."ID_TIPO",
+         cargo."PADRE_ID",
+         cargo."ID_UNIDAD",
+         cargo."EMBARQUE_ID",
+         cargo."EMBARCADO_EN",
+         cargo."EMBARCADO_DIRECTO",
+         tipo."CODIGO" AS "TIPO_CODIGO",
+         tipo."NOMBRE" AS "TIPO_NOMBRE",
+         tipo."ES_FINAL" AS "TIPO_ES_FINAL"
+       FROM cargo
+       JOIN "LOTES_TIPOS" AS tipo ON tipo."ID" = cargo."ID_TIPO"
+       ORDER BY cargo."ID", cargo."EMBARCADO_DIRECTO" DESC`,
+      [id],
+    );
+
+    const lotes = lotesResult.rows.map((row) => ({
+      ID: Number(row.ID),
+      ID_TIPO: Number(row.ID_TIPO),
+      PADRE_ID: row.PADRE_ID == null ? null : Number(row.PADRE_ID),
+      ID_UNIDAD: row.ID_UNIDAD == null ? null : Number(row.ID_UNIDAD),
+      EMBARQUE_ID: row.EMBARQUE_ID == null ? null : Number(row.EMBARQUE_ID),
+      EMBARCADO_EN: row.EMBARCADO_EN,
+      EMBARCADO_DIRECTO: Boolean(row.EMBARCADO_DIRECTO),
+      TIPO: {
+        ID: Number(row.ID_TIPO),
+        CODIGO: row.TIPO_CODIGO,
+        NOMBRE: row.TIPO_NOMBRE,
+        ES_FINAL: Boolean(row.TIPO_ES_FINAL),
+      },
+      REFERENCIAS: [],
+      PRODUCTOS: [],
+    }));
+
+    const loteIds = lotes.map((lote) => lote.ID);
+    if (loteIds.length) {
+      const [refsResult, prodsResult] = await Promise.all([
+        pool.query(
+          `SELECT r."ID", r."ID_LOTE", r."ID_TIPO", r."REFERENCIA", r."DESCRIPCION",
+                  t."CODIGO" AS "TIPO_CODIGO", t."CLAVE" AS "TIPO_CLAVE",
+                  t."NOMBRE" AS "TIPO_NOMBRE"
+           FROM "LOTES_REFERENCIAS" AS r
+           JOIN "REFERENCIAS_TIPOS" AS t ON t."ID" = r."ID_TIPO"
+           WHERE r."ID_LOTE" = ANY($1::int[])
+           ORDER BY r."CREADO_EN" DESC, r."ID" DESC`,
+          [loteIds],
+        ),
+        pool.query(
+          `SELECT p."ID", p."ID_LOTE", p."CLAVE_PRODUCTO", p."CANTIDAD", p."ID_UNIDAD",
+                  u."CODIGO" AS "UNIDAD_CODIGO", u."NOMBRE" AS "UNIDAD_NOMBRE"
+           FROM "LOTES_PRODUCTOS" AS p
+           JOIN "UNIDADES" AS u ON u."ID" = p."ID_UNIDAD"
+           WHERE p."ID_LOTE" = ANY($1::int[])
+           ORDER BY p."CREADO_EN" DESC, p."ID" DESC`,
+          [loteIds],
+        ),
+      ]);
+
+      const byId = new Map(lotes.map((lote) => [lote.ID, lote]));
+      refsResult.rows.forEach((row) => {
+        const lote = byId.get(Number(row.ID_LOTE));
+        if (!lote) {
+          return;
+        }
+        lote.REFERENCIAS.push({
+          ID: Number(row.ID),
+          ID_TIPO: Number(row.ID_TIPO),
+          REFERENCIA: row.REFERENCIA,
+          DESCRIPCION: row.DESCRIPCION,
+          TIPO: {
+            CODIGO: row.TIPO_CODIGO,
+            CLAVE: row.TIPO_CLAVE,
+            NOMBRE: row.TIPO_NOMBRE,
+          },
+        });
+      });
+      prodsResult.rows.forEach((row) => {
+        const lote = byId.get(Number(row.ID_LOTE));
+        if (!lote) {
+          return;
+        }
+        lote.PRODUCTOS.push({
+          ID: Number(row.ID),
+          CLAVE_PRODUCTO: row.CLAVE_PRODUCTO,
+          CANTIDAD: Number(row.CANTIDAD),
+          ID_UNIDAD: Number(row.ID_UNIDAD),
+          UNIDAD: {
+            CODIGO: row.UNIDAD_CODIGO,
+            NOMBRE: row.UNIDAD_NOMBRE,
+          },
+        });
+      });
+    }
+
+    const productosTotal = lotes.reduce(
+      (sum, lote) => sum + lote.PRODUCTOS.length,
+      0,
+    );
+
+    const porTipoMap = new Map();
+    lotes.forEach((lote) => {
+      let entry = porTipoMap.get(lote.ID_TIPO);
+      if (!entry) {
+        entry = {
+          ID_TIPO: lote.ID_TIPO,
+          CODIGO: lote.TIPO.CODIGO,
+          NOMBRE: lote.TIPO.NOMBRE,
+          ES_FINAL: lote.TIPO.ES_FINAL,
+          LOTES: 0,
+          PRODUCTOS: 0,
+        };
+        porTipoMap.set(lote.ID_TIPO, entry);
+      }
+      entry.LOTES += 1;
+      entry.PRODUCTOS += lote.PRODUCTOS.length;
+    });
+    const porTipo = [...porTipoMap.values()].sort((a, b) =>
+      a.NOMBRE.localeCompare(b.NOMBRE, 'es'),
+    );
+
+    sendData(res, 200, {
+      EXPEDICION: mapRow(expedicion),
+      RESUMEN: {
+        LOTES: lotes.length,
+        PRODUCTOS: productosTotal,
+        POR_TIPO: porTipo,
+      },
+      LOTES: lotes,
+    });
+  } catch (err) {
+    translate(err);
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const id = parseId(req.params.id);
   try {

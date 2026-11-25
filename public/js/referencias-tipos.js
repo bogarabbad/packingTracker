@@ -34,7 +34,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function mapError(code) {
     const messages = {
       duplicate_codigo: 'Ya existe un tipo con ese código.',
+      duplicate_clave: 'Ya existe un tipo con esa clave.',
       invalid_codigo: 'Código inválido.',
+      invalid_clave: 'Clave inválida.',
       invalid_nombre: 'Nombre inválido.',
       invalid_activo: 'Estado activo inválido.',
       seed_not_deletable: 'Este registro no se puede eliminar.',
@@ -59,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (row) {
       document.getElementById('rt-codigo').value = row.CODIGO || '';
+      document.getElementById('rt-clave').value = row.CLAVE || '';
       document.getElementById('rt-nombre').value = row.NOMBRE || '';
       document.getElementById('rt-activo').checked = Boolean(row.ACTIVO);
     }
@@ -74,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRows(rows) {
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-muted-foreground">Sin registros.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted-foreground">Sin registros.</td></tr>';
       return;
     }
 
@@ -83,6 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `
         <tr data-id="${row.ID}">
           <td>${escapeHtml(row.CODIGO)}</td>
+          <td>${escapeHtml(row.CLAVE)}</td>
           <td>${escapeHtml(row.NOMBRE)}</td>
           <td>
             <span class="ui-badge ${row.ACTIVO ? 'ui-badge-secondary' : 'ui-badge-outline'}">
@@ -134,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
-      tbody.innerHTML = '<tr><td colspan="4" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
       window.PackingToast.toast(mapError(result.error), 'error');
       if (result.status === 401) {
         window.location.replace('/login');
@@ -242,6 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const idValue = document.getElementById('rt-id').value;
     const payload = {
       CODIGO: document.getElementById('rt-codigo').value.trim(),
+      CLAVE: document.getElementById('rt-clave').value.trim(),
       NOMBRE: document.getElementById('rt-nombre').value.trim(),
       ACTIVO: document.getElementById('rt-activo').checked,
     };

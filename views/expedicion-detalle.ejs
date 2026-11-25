@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Expedición · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'expediciones' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Detalle de expedición' }) %>
+        <main class="ui-page ui-page-wide">
+          <section class="flex flex-wrap items-start justify-between gap-3">
+            <div class="grid gap-1">
+              <a href="/operacion/expediciones" class="text-sm text-muted-foreground hover:text-foreground">
+                ← Expediciones
+              </a>
+              <h1 id="exd-title" class="text-xl font-semibold tracking-tight">Expedición</h1>
+              <p id="exd-subtitle" class="text-sm text-muted-foreground"></p>
+              <div id="exd-badges" class="mt-1 flex flex-wrap gap-2"></div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="exd-btn-edit" class="ui-btn ui-btn-outline ui-btn-md">Editar</button>
+              <button type="button" id="exd-btn-cerrar" class="ui-btn ui-btn-outline ui-btn-md">Cerrar expedición</button>
+            </div>
+          </section>
+
+          <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="ui-stat">
+              <p class="ui-stat-label">Lotes cargados</p>
+              <p id="exd-stat-lotes" class="ui-stat-value">—</p>
+            </div>
+            <div class="ui-stat">
+              <p class="ui-stat-label">Productos cargados</p>
+              <p id="exd-stat-productos" class="ui-stat-value">—</p>
+            </div>
+            <div class="ui-stat">
+              <p class="ui-stat-label">Creada</p>
+              <p id="exd-stat-creada" class="mt-1 text-sm font-medium">—</p>
+            </div>
+            <div class="ui-stat">
+              <p class="ui-stat-label">Ubicación salida</p>
+              <p id="exd-stat-ubicacion" class="mt-1 text-sm font-medium">—</p>
+            </div>
+          </section>
+
+          <%- include('partials/card', {
+            title: 'Lotes por tipo',
+            description: 'Desglose de la carga según el tipo de lote.',
+            body: `
+              <div id="exd-por-tipo" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <p class="text-sm text-muted-foreground sm:col-span-2 lg:col-span-4">Cargando…</p>
+              </div>
+            `
+          }) %>
+
+          <section class="grid gap-6 lg:grid-cols-[20rem_1fr]">
+            <%- include('partials/card', {
+              title: 'Árbol de lotes',
+              description: 'Navega por la jerarquía según el padre.',
+              body: `
+                <nav id="exd-tree-nav" class="mb-3 flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="Ruta del lote"></nav>
+                <div id="exd-tree" class="ui-tree" aria-label="Árbol de lotes embarcados">
+                  <p class="text-sm text-muted-foreground">Cargando…</p>
+                </div>
+                <div id="exd-lote-productos" class="mt-4 border-t border-border pt-3">
+                  <p class="mb-2 text-sm font-medium">Productos del lote</p>
+                  <div id="exd-lote-productos-body" class="text-sm text-muted-foreground">
+                    Selecciona un lote del árbol.
+                  </div>
+                </div>
+              `
+            }) %>
+
+            <div class="grid gap-6">
+              <%- include('partials/card', {
+                title: 'Embarcar lote',
+                body: `
+                  <form id="exd-lote-form" class="grid gap-3 sm:grid-cols-[1fr_auto]">
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-lote-id">Lote suelto disponible</label>
+                      <select class="ui-input" id="exd-lote-id" required></select>
+                    </div>
+                    <div class="flex items-end">
+                      <button type="submit" id="exd-lote-submit" class="ui-btn ui-btn-default ui-btn-md">Embarcar</button>
+                    </div>
+                  </form>
+                  <p id="exd-lote-error" class="mt-2 hidden text-sm text-destructive" role="alert"></p>
+                  <p id="exd-lote-hint" class="mt-2 text-sm text-muted-foreground">
+                    Solo lotes sin padre y que aún no estén en otra expedición.
+                  </p>
+                `
+              }) %>
+
+              <%- include('partials/card', {
+                title: 'Carga embarcada',
+                description: 'Busca por lote, tipo, referencia o producto.',
+                body: `
+                  <form id="exd-cargo-filters" class="ui-filters mb-4">
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-filter-lote">Lote</label>
+                      <input class="ui-input" id="exd-filter-lote" placeholder="ID o texto" autocomplete="off" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-filter-tipo">Tipo de lote</label>
+                      <select class="ui-input" id="exd-filter-tipo">
+                        <option value="">Todos</option>
+                      </select>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-filter-tipo-ref">Tipo de referencia</label>
+                      <select class="ui-input" id="exd-filter-tipo-ref">
+                        <option value="">Todos</option>
+                      </select>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-filter-ref">Referencia</label>
+                      <input class="ui-input" id="exd-filter-ref" placeholder="Referencia" autocomplete="off" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <label class="ui-label" for="exd-filter-prod">Producto</label>
+                      <input class="ui-input" id="exd-filter-prod" placeholder="Clave producto" autocomplete="off" />
+                    </div>
+                    <div class="ui-filters-actions">
+                      <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+                      <button type="button" id="exd-cargo-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+                    </div>
+                  </form>
+                  <div class="ui-tabs" role="tablist" aria-label="Vista de carga">
+                    <button type="button" class="ui-tab is-active" role="tab" aria-selected="true" data-cargo-tab="lotes">Lotes</button>
+                    <button type="button" class="ui-tab" role="tab" aria-selected="false" data-cargo-tab="productos">Productos</button>
+                  </div>
+                  <p id="exd-cargo-status" class="mb-2 text-sm text-muted-foreground"></p>
+                  <div id="exd-panel-lotes" class="ui-table-wrap" data-cargo-panel="lotes">
+                    <table class="ui-table" aria-label="Lotes embarcados">
+                      <thead>
+                        <tr>
+                          <th scope="col">Lote</th>
+                          <th scope="col">Tipo</th>
+                          <th scope="col">Padre</th>
+                          <th scope="col">Referencias</th>
+                          <th scope="col">Productos</th>
+                          <th scope="col" class="text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody id="exd-cargo-tbody">
+                        <tr><td colspan="6" class="text-muted-foreground">Cargando…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div id="exd-panel-productos" class="ui-table-wrap hidden" data-cargo-panel="productos">
+                    <table class="ui-table" aria-label="Productos embarcados">
+                      <thead>
+                        <tr>
+                          <th scope="col">Producto</th>
+                          <th scope="col">Cantidad</th>
+                          <th scope="col">Unidad</th>
+                          <th scope="col">Lote</th>
+                          <th scope="col">Tipo de lote</th>
+                          <th scope="col" class="text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody id="exd-productos-tbody">
+                        <tr><td colspan="6" class="text-muted-foreground">Cargando…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                `
+              }) %>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="exd-form-dialog" class="ui-dialog-panel" aria-labelledby="exd-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="exd-form-title" class="ui-dialog-title">Editar expedición</h2>
+      </header>
+      <form id="exd-form" class="mt-4 grid gap-4">
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="exd-id-unidad">Unidad de transporte</label>
+          <select class="ui-input" id="exd-id-unidad" name="ID_UNIDAD" required></select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="exd-id-ubicacion">ID ubicación salida</label>
+          <input class="ui-input" id="exd-id-ubicacion" name="ID_UBICACION_SALIDA" inputmode="numeric" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="exd-clave-ubicacion">Clave ubicación salida</label>
+          <input class="ui-input" id="exd-clave-ubicacion" name="CLAVE_UBICACION_SALIDA" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="exd-fecha-cierre">Fecha de cierre</label>
+          <input class="ui-input" id="exd-fecha-cierre" name="FECHA_CIERRE" type="datetime-local" />
+          <p class="text-xs text-muted-foreground">Vacío = expedición abierta.</p>
+        </div>
+        <p id="exd-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="exd-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <input type="hidden" id="exd-id" value="<%= expedicionId %>" />
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/expedicion-detalle.js" defer></script>
+  </body>
+</html>

@@ -582,7 +582,11 @@ paths:
         - $ref: '#/components/parameters/Activo'
       responses:
         '200':
-          $ref: '#/components/responses/CatalogoLista'
+          description: Catálogo ordenado por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaReferenciaTipoLista'
         '400':
           $ref: '#/components/responses/PaginacionInvalida'
         '500':
@@ -592,14 +596,18 @@ paths:
       operationId: createReferenciaTipo
       summary: Crea un tipo de referencia
       requestBody:
-        $ref: '#/components/requestBodies/Catalogo'
+        $ref: '#/components/requestBodies/ReferenciaTipo'
       responses:
         '201':
-          $ref: '#/components/responses/CatalogoCreado'
+          description: Tipo de referencia creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaReferenciaTipo'
         '400':
-          $ref: '#/components/responses/ErrorSolicitud'
+          $ref: '#/components/responses/ErrorReferenciaTipo'
         '409':
-          $ref: '#/components/responses/CodigoDuplicado'
+          $ref: '#/components/responses/ConflictoReferenciaTipo'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /referencias-tipos/{id}:
@@ -611,7 +619,11 @@ paths:
       summary: Obtiene un tipo de referencia
       responses:
         '200':
-          $ref: '#/components/responses/Catalogo'
+          description: Tipo de referencia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaReferenciaTipo'
         '400':
           $ref: '#/components/responses/IdInvalido'
         '404':
@@ -623,18 +635,24 @@ paths:
       operationId: updateReferenciaTipo
       summary: Reemplaza un tipo de referencia
       description: |
-        Reemplaza `CODIGO`, `NOMBRE` y `ACTIVO`. Si `ACTIVO` no viene en el cuerpo, se guarda `true`.
+        Reemplaza `CODIGO`, `CLAVE`, `NOMBRE` y `ACTIVO`.
+        Si `ACTIVO` no viene en el cuerpo, se guarda `true`.
+        Si `CLAVE` no viene, se conserva el valor actual.
       requestBody:
-        $ref: '#/components/requestBodies/Catalogo'
+        $ref: '#/components/requestBodies/ReferenciaTipo'
       responses:
         '200':
-          $ref: '#/components/responses/Catalogo'
+          description: Tipo de referencia actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaReferenciaTipo'
         '400':
-          $ref: '#/components/responses/ErrorSolicitud'
+          $ref: '#/components/responses/ErrorReferenciaTipo'
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '409':
-          $ref: '#/components/responses/CodigoDuplicado'
+          $ref: '#/components/responses/ConflictoReferenciaTipo'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     delete:
@@ -1075,6 +1093,30 @@ paths:
           $ref: '#/components/responses/ExpedicionEnUso'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /expediciones/{id}/carga:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Expediciones]
+      operationId: getExpedicionCarga
+      summary: Obtiene la carga jerárquica de una expedición
+      description: |
+        Devuelve la expedición, el resumen de lotes y productos (incluye desglose
+        `POR_TIPO`), y los lotes del embarque con sus hijos por `PADRE_ID`,
+        referencias y productos.
+      responses:
+        '200':
+          description: Carga de la expedición.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicionCarga'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /expediciones-lotes:
     get:
       tags: [Embarques]
@@ -1499,6 +1541,20 @@ components:
         type: string
         pattern: '^[1-9]\d*$'
   requestBodies:
+    ReferenciaTipo:
+      required: true
+      description: |
+        En el alta, `CLAVE` es obligatoria.
+        En el reemplazo, `CLAVE` omitida conserva su valor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReferenciaTipoEntrada'
+          example:
+            CODIGO: PACKING
+            CLAVE: P
+            NOMBRE: Packing
+            ACTIVO: true
     LoteTipo:
       required: true
       description: |
@@ -1808,6 +1864,49 @@ components:
                 _metadata: {}
                 error:
                   error: record_in_use
+    ErrorReferenciaTipo:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_clave`, `invalid_nombre`, `invalid_activo` o `request_error`.
+        `CLAVE` debe ser texto no vacío de hasta 8 caracteres después de recortar espacios.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            clave:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_clave
+            codigo:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_codigo
+    ConflictoReferenciaTipo:
+      description: |
+        `duplicate_codigo` si el código ya existe.
+        `duplicate_clave` si la clave ya existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            codigo:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: duplicate_codigo
+            clave:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: duplicate_clave
     ErrorLoteTipo:
       description: |
         El cuerpo no es válido o el cambio de `ES_FINAL` deja el tipo inconsistente
@@ -2288,6 +2387,24 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/LoteTipo'
+    RespuestaReferenciaTipo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ReferenciaTipo'
+    RespuestaReferenciaTipoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReferenciaTipo'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaLote:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -2313,6 +2430,13 @@ components:
                 $ref: '#/components/schemas/Expedicion'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaExpedicionCarga:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ExpedicionCarga'
     RespuestaExpedicionLote:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -2801,6 +2925,145 @@ components:
       description: |
         `EMBARCADO_EN` omitido o `null` usa el valor por defecto de la base.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    ExpedicionCarga:
+      type: object
+      required: [EXPEDICION, RESUMEN, LOTES]
+      properties:
+        EXPEDICION:
+          $ref: '#/components/schemas/Expedicion'
+        RESUMEN:
+          type: object
+          required: [LOTES, PRODUCTOS, POR_TIPO]
+          properties:
+            LOTES:
+              type: integer
+              minimum: 0
+              description: Cantidad de lotes en la carga (raíces embarcadas y sus hijos).
+            PRODUCTOS:
+              type: integer
+              minimum: 0
+              description: Cantidad de filas de producto en esos lotes.
+            POR_TIPO:
+              type: array
+              description: Desglose de lotes y productos por tipo de lote.
+              items:
+                type: object
+                required: [ID_TIPO, CODIGO, NOMBRE, ES_FINAL, LOTES, PRODUCTOS]
+                properties:
+                  ID_TIPO:
+                    type: integer
+                    minimum: 1
+                  CODIGO:
+                    type: string
+                  NOMBRE:
+                    type: string
+                  ES_FINAL:
+                    type: boolean
+                  LOTES:
+                    type: integer
+                    minimum: 0
+                  PRODUCTOS:
+                    type: integer
+                    minimum: 0
+        LOTES:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpedicionCargaLote'
+    ExpedicionCargaLote:
+      type: object
+      required:
+        - ID
+        - ID_TIPO
+        - PADRE_ID
+        - EMBARCADO_DIRECTO
+        - TIPO
+        - REFERENCIAS
+        - PRODUCTOS
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        PADRE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ID_UNIDAD:
+          type: integer
+          nullable: true
+          minimum: 1
+        EMBARQUE_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        EMBARCADO_EN:
+          type: string
+          format: date-time
+          nullable: true
+        EMBARCADO_DIRECTO:
+          type: boolean
+          description: `true` si el lote está en `EXPEDICIONES_LOTES`.
+        TIPO:
+          type: object
+          required: [ID, CODIGO, NOMBRE, ES_FINAL]
+          properties:
+            ID:
+              type: integer
+            CODIGO:
+              type: string
+            NOMBRE:
+              type: string
+            ES_FINAL:
+              type: boolean
+        REFERENCIAS:
+          type: array
+          items:
+            type: object
+            required: [ID, ID_TIPO, REFERENCIA]
+            properties:
+              ID:
+                type: integer
+              ID_TIPO:
+                type: integer
+              REFERENCIA:
+                type: string
+              DESCRIPCION:
+                type: string
+                nullable: true
+              TIPO:
+                type: object
+                required: [CODIGO, CLAVE, NOMBRE]
+                properties:
+                  CODIGO:
+                    type: string
+                  CLAVE:
+                    type: string
+                    description: Abreviatura del tipo de referencia.
+                  NOMBRE:
+                    type: string
+        PRODUCTOS:
+          type: array
+          items:
+            type: object
+            required: [ID, CLAVE_PRODUCTO, CANTIDAD, ID_UNIDAD]
+            properties:
+              ID:
+                type: integer
+              CLAVE_PRODUCTO:
+                type: string
+              CANTIDAD:
+                type: number
+              ID_UNIDAD:
+                type: integer
+              UNIDAD:
+                type: object
+                properties:
+                  CODIGO:
+                    type: string
+                  NOMBRE:
+                    type: string
     LoteEntrada:
       type: object
       required: [ID_TIPO]
@@ -3066,6 +3329,60 @@ components:
       description: |
         Los campos ajenos a este esquema se ignoran.
         `CREADO_EN` y `ACTUALIZADO_EN` los asigna el servicio.
+    ReferenciaTipo:
+      type: object
+      required: [ID, CODIGO, CLAVE, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        CLAVE:
+          type: string
+          minLength: 1
+          maxLength: 8
+          description: Abreviatura única del tipo. Packing nace con `P`.
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: Packing nace como semilla. Se puede modificar y no se elimina.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    ReferenciaTipoEntrada:
+      type: object
+      required: [CODIGO, CLAVE, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        CLAVE:
+          type: string
+          minLength: 1
+          maxLength: 8
+          description: Abreviatura. Se recortan espacios. Debe ser única.
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: |
+        En el reemplazo, si `CLAVE` se omite se conserva.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     UnidadTransporte:
       type: object
       required:

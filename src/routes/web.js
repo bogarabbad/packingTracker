@@ -46,4 +46,8 @@ router.get('/operacion/expediciones', (req, res) => {
   res.render('expediciones');
 });
 
+router.get('/operacion/expediciones/:id', (req, res) => {
+  res.render('expedicion-detalle', { expedicionId: req.params.id });
+});
+
 module.exports = router;

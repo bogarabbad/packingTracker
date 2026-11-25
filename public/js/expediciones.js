@@ -8,19 +8,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     items: 20,
     total: 0,
     deleteId: null,
-    detailExpedicion: null,
     unidades: new Map(),
-    tipos: new Map(),
-    lotesCache: new Map(),
-    embarques: [],
     filters: { id_unidad: '', abierta: '', q: '' },
   };
-
-  const loteForm = document.getElementById('ex-lote-form');
-  const loteSelect = document.getElementById('ex-lote-id');
-  const loteError = document.getElementById('ex-lote-error');
-  const lotesTbody = document.getElementById('ex-lotes-tbody');
-  const lotesStatus = document.getElementById('ex-lotes-status');
 
   const statusNode = document.getElementById('ex-status');
   const tbody = document.getElementById('ex-tbody');
@@ -28,7 +18,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const prevBtn = document.getElementById('ex-prev');
   const nextBtn = document.getElementById('ex-next');
   const formDialog = document.getElementById('ex-form-dialog');
-  const detailDialog = document.getElementById('ex-detail-dialog');
   const deleteDialog = document.getElementById('ex-delete-dialog');
   const form = document.getElementById('ex-form');
   const formError = document.getElementById('ex-form-error');
@@ -55,24 +44,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_origen_usuario: 'Origen de usuario inválido.',
       invalid_usuario_origen: 'Usuario y origen deben ir juntos.',
       invalid_expedicion: 'Datos de expedición inválidos.',
-      invalid_id_expedicion: 'Expedición inválida.',
-      invalid_id_lote: 'Lote inválido, con padre o no disponible.',
-      invalid_embarcado_en: 'Fecha de embarque inválida.',
-      invalid_embarque: 'No se pudo embarcar el lote.',
       invalid_abierta: 'Filtro de abierta inválido.',
       unidad_ya_abierta: 'Esa unidad ya tiene una expedición abierta.',
-      lote_ya_embarcado: 'Ese lote ya está embarcado en otra expedición.',
-      expedicion_cerrada: 'La expedición está cerrada.',
       record_in_use: 'La expedición tiene lotes y no se puede eliminar.',
       not_found: 'Registro no encontrado.',
       unauthorized: 'Sesión no válida.',
     };
     return messages[code] || 'No se pudo completar la operación.';
-  }
-
-  function showLoteError(message) {
-    loteError.textContent = message;
-    loteError.classList.toggle('hidden', !message);
   }
 
   function sessionUsuario() {
@@ -192,97 +170,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function closeDetail() {
-    state.detailExpedicion = null;
-    state.embarques = [];
-    if (detailDialog.open) {
-      detailDialog.close();
-    }
-  }
-
-  function renderEmbarques() {
-    const rows = state.embarques;
-    lotesStatus.textContent = `${rows.length} lote(s)`;
-    if (!rows.length) {
-      lotesTbody.innerHTML =
-        '<tr><td colspan="4" class="text-muted-foreground">Sin lotes.</td></tr>';
-      return;
-    }
-
-    lotesTbody.innerHTML = rows.map((row) => {
-      const lote = state.lotesCache.get(row.ID_LOTE);
-      const tipo = lote ? state.tipos.get(lote.ID_TIPO) : null;
-      const abierta = state.detailExpedicion?.FECHA_CIERRE == null;
-      return `
-        <tr data-id="${row.ID}">
-          <td>#${row.ID_LOTE}</td>
-          <td>${escapeHtml(tipo ? tipo.NOMBRE : (lote ? lote.ID_TIPO : '—'))}</td>
-          <td>${escapeHtml(formatDate(row.EMBARCADO_EN))}</td>
-          <td class="text-right">
-            ${abierta
-    ? '<button type="button" class="ui-btn ui-btn-destructive ui-btn-sm" data-action="quitar-lote">Quitar</button>'
-    : '—'}
-          </td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  async function loadLotesDisponibles() {
-    const result = await window.PackingApi.request('/lotes?embarcable=true&items=100');
-    if (!result.ok) {
-      fillSelect(loteSelect, [], 'No se pudieron cargar lotes');
-      loteSelect.disabled = true;
-      return;
-    }
-    const rows = Array.isArray(result.data) ? result.data : [];
-    rows.forEach((row) => state.lotesCache.set(row.ID, row));
-    fillSelect(
-      loteSelect,
-      rows,
-      rows.length ? 'Selecciona un lote' : 'Sin lotes disponibles',
-      (lote) => {
-        const tipo = state.tipos.get(lote.ID_TIPO);
-        return `#${lote.ID} · ${tipo ? tipo.NOMBRE : lote.ID_TIPO}`;
-      },
-    );
-    loteSelect.disabled = rows.length === 0;
-  }
-
-  async function loadDetailLotes(expedicion) {
-    showLoteError('');
-    const abierta = expedicion.FECHA_CIERRE == null;
-    loteForm.classList.toggle('hidden', !abierta);
-    document.getElementById('ex-lote-hint').classList.toggle('hidden', !abierta);
-    document.getElementById('ex-lote-submit').disabled = !abierta;
-
-    const [embarques] = await Promise.all([
-      window.PackingApi.request(`/expediciones-lotes?id_expedicion=${expedicion.ID}&items=100`),
-      abierta ? loadLotesDisponibles() : Promise.resolve(),
-    ]);
-
-    if (!embarques.ok) {
-      window.PackingToast.toast(mapError(embarques.error), 'error');
-      state.embarques = [];
-      renderEmbarques();
-      return;
-    }
-
-    state.embarques = Array.isArray(embarques.data) ? embarques.data : [];
-    const missing = state.embarques
-      .map((row) => row.ID_LOTE)
-      .filter((id) => !state.lotesCache.has(id));
-    if (missing.length) {
-      await Promise.all(missing.map(async (id) => {
-        const result = await window.PackingApi.request(`/lotes/${id}`);
-        if (result.ok) {
-          state.lotesCache.set(result.data.ID, result.data);
-        }
-      }));
-    }
-    renderEmbarques();
-  }
-
   function renderRows(rows) {
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-muted-foreground">Sin registros.</td></tr>';
@@ -304,7 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <td>${escapeHtml(formatDate(row.FECHA_CIERRE))}</td>
           <td class="text-right">
             <div class="inline-flex flex-wrap justify-end gap-2">
-              <button type="button" class="ui-btn ui-btn-outline ui-btn-sm" data-action="detail">Detalle</button>
+              <a href="/operacion/expediciones/${row.ID}" class="ui-btn ui-btn-outline ui-btn-sm">Detalle</a>
               <button type="button" class="ui-btn ui-btn-outline ui-btn-sm" data-action="edit">Editar</button>
               <button type="button" class="ui-btn ui-btn-destructive ui-btn-sm" data-action="delete">Eliminar</button>
             </div>
@@ -323,45 +210,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     nextBtn.disabled = state.page >= pages || state.total === 0;
   }
 
-  async function openDetail(row) {
-    state.detailExpedicion = row;
-    const abierta = row.FECHA_CIERRE == null;
-    document.getElementById('ex-detail-title').textContent = `Expedición #${row.ID}`;
-    document.getElementById('ex-detail-subtitle').textContent = unidadLabel(row.ID_UNIDAD);
-    document.getElementById('ex-detail-badges').innerHTML = `
-      <span class="ui-badge ${abierta ? 'ui-badge-secondary' : 'ui-badge-outline'}">
-        ${abierta ? 'Abierta' : 'Cerrada'}
-      </span>
-    `;
-    document.getElementById('ex-detail-unidad').textContent = unidadLabel(row.ID_UNIDAD);
-    document.getElementById('ex-detail-creada').textContent = formatDate(row.CREADO_EN);
-    document.getElementById('ex-detail-cierre').textContent = formatDate(row.FECHA_CIERRE);
-    const ubicacionParts = [];
-    if (row.ID_UBICACION_SALIDA != null) {
-      ubicacionParts.push(`ID ${row.ID_UBICACION_SALIDA}`);
-    }
-    if (row.CLAVE_UBICACION_SALIDA) {
-      ubicacionParts.push(row.CLAVE_UBICACION_SALIDA);
-    }
-    document.getElementById('ex-detail-ubicacion').textContent =
-      ubicacionParts.length ? ubicacionParts.join(' · ') : '—';
-    document.getElementById('ex-detail-cerrar').hidden = !abierta;
-    if (!detailDialog.open) {
-      detailDialog.showModal();
-    }
-    await loadDetailLotes(row);
-  }
-
   async function loadCatalogs() {
-    const [unidades, tipos] = await Promise.all([
-      window.PackingApi.request('/unidades-transporte?items=100'),
-      window.PackingApi.request('/lotes-tipos?items=100'),
-    ]);
-    if (!unidades.ok || !tipos.ok) {
+    const unidades = await window.PackingApi.request('/unidades-transporte?items=100');
+    if (!unidades.ok) {
       throw new Error('catalogs');
     }
     state.unidades = new Map((unidades.data || []).map((row) => [row.ID, row]));
-    state.tipos = new Map((tipos.data || []).map((row) => [row.ID, row]));
     fillSelect(
       document.getElementById('ex-filter-unidad'),
       [...state.unidades.values()],
@@ -429,94 +283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadList();
   });
   document.getElementById('ex-form-cancel').addEventListener('click', closeForm);
-  document.getElementById('ex-detail-close').addEventListener('click', closeDetail);
-  document.getElementById('ex-detail-edit').addEventListener('click', () => {
-    const row = state.detailExpedicion;
-    closeDetail();
-    if (row) {
-      openForm(row);
-    }
-  });
-  document.getElementById('ex-detail-cerrar').addEventListener('click', async () => {
-    const row = state.detailExpedicion;
-    if (!row || row.FECHA_CIERRE != null) {
-      return;
-    }
-    const payload = {
-      ID_UNIDAD: row.ID_UNIDAD,
-      FECHA_CIERRE: new Date().toISOString(),
-      ID_UBICACION_SALIDA: row.ID_UBICACION_SALIDA,
-      CLAVE_UBICACION_SALIDA: row.CLAVE_UBICACION_SALIDA,
-      ...sessionUsuario(),
-    };
-    const result = await window.PackingApi.request(`/expediciones/${row.ID}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    if (!result.ok) {
-      window.PackingToast.toast(mapError(result.error), 'error');
-      return;
-    }
-    window.PackingToast.toast('Expedición cerrada');
-    state.detailExpedicion = result.data;
-    await loadList();
-    await openDetail(result.data);
-  });
-
-  loteForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!state.detailExpedicion || state.detailExpedicion.FECHA_CIERRE != null) {
-      return;
-    }
-    showLoteError('');
-    const payload = {
-      ID_EXPEDICION: state.detailExpedicion.ID,
-      ID_LOTE: Number(loteSelect.value),
-      ...sessionUsuario(),
-    };
-    const submit = document.getElementById('ex-lote-submit');
-    submit.disabled = true;
-    try {
-      const result = await window.PackingApi.request('/expediciones-lotes', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      if (!result.ok) {
-        showLoteError(mapError(result.error));
-        window.PackingToast.toast(mapError(result.error), 'error');
-        return;
-      }
-      window.PackingToast.toast('Lote embarcado');
-      loteForm.reset();
-      await loadDetailLotes(state.detailExpedicion);
-    } catch {
-      showLoteError('Error de red.');
-      window.PackingToast.toast('Error de red', 'error');
-    } finally {
-      submit.disabled = false;
-    }
-  });
-
-  lotesTbody.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action="quitar-lote"]');
-    if (!button || !state.detailExpedicion) {
-      return;
-    }
-    const row = button.closest('tr[data-id]');
-    if (!row) {
-      return;
-    }
-    const id = Number(row.dataset.id);
-    const result = await window.PackingApi.request(`/expediciones-lotes/${id}`, {
-      method: 'DELETE',
-    });
-    if (!result.ok) {
-      window.PackingToast.toast(mapError(result.error), 'error');
-      return;
-    }
-    window.PackingToast.toast('Lote quitado');
-    await loadDetailLotes(state.detailExpedicion);
-  });
   document.getElementById('ex-delete-cancel').addEventListener('click', () => {
     state.deleteId = null;
     if (deleteDialog.open) {
@@ -553,17 +319,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const id = Number(row.dataset.id);
     const action = button.dataset.action;
 
-    if (action === 'detail' || action === 'edit') {
+    if (action === 'edit') {
       const result = await window.PackingApi.request(`/expediciones/${id}`);
       if (!result.ok) {
         window.PackingToast.toast(mapError(result.error), 'error');
         return;
       }
-      if (action === 'detail') {
-        await openDetail(result.data);
-      } else {
-        openForm(result.data);
-      }
+      openForm(result.data);
       return;
     }
 
@@ -629,10 +391,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeForm();
       window.PackingToast.toast(idValue ? 'Expedición actualizada' : 'Expedición creada');
       if (!idValue) {
-        state.page = 1;
+        window.location.assign(`/operacion/expediciones/${result.data.ID}`);
+        return;
       }
       await loadList();
-      await openDetail(result.data);
     } catch {
       showFormError('Error de red.');
       window.PackingToast.toast('Error de red', 'error');

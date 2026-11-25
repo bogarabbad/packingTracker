@@ -23,6 +23,7 @@ function authenticate(req, res, next) {
     PUBLIC_PATHS.has(req.path)
     || req.path.startsWith('/css/')
     || req.path.startsWith('/js/')
+    || /^\/operacion\/expediciones\/[1-9]\d*$/.test(req.path)
   ) {
     next();
     return;
