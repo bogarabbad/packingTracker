@@ -122,7 +122,7 @@ Optional sample transport units:
 psql -U packing -d packing_tracker -f db/seed.sql
 ```
 
-`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0025`.
+`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0026`.
 
 ### Configuration
 

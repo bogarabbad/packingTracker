@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Categorías de ubicación · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'ubicaciones-categorias' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Categorías de ubicación' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="uc-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nueva categoría',
+              variant: 'default',
+              size: 'md',
+              id: 'uc-btn-new'
+            }) %>
+          </section>
+
+          <form id="uc-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="uc-filter-q">Buscar</label>
+              <input class="ui-input" id="uc-filter-q" name="q" placeholder="Código o nombre" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="uc-filter-padre">Padre</label>
+              <select class="ui-input" id="uc-filter-padre" name="padre_id">
+                <option value="">Todos</option>
+                <option value="raiz">Solo raíces</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="uc-filter-activo">Activo</label>
+              <select class="ui-input" id="uc-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activas</option>
+                <option value="false">Inactivas</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="uc-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Categorías de ubicación">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Padre</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="uc-tbody">
+                    <tr>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="uc-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="uc-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="uc-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="uc-form-dialog" class="ui-dialog-panel" aria-labelledby="uc-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="uc-form-title" class="ui-dialog-title">Nueva categoría</h2>
+      </header>
+      <form id="uc-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="uc-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="uc-codigo">Código</label>
+          <input class="ui-input" id="uc-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="uc-nombre">Nombre</label>
+          <input class="ui-input" id="uc-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="uc-padre-id">Padre</label>
+          <select class="ui-input" id="uc-padre-id" name="PADRE_ID">
+            <option value="">Sin padre (raíz)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="uc-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="uc-activo">Activa</label>
+        </div>
+        <p id="uc-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="uc-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="uc-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="uc-delete-dialog" class="ui-dialog-panel" aria-labelledby="uc-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="uc-delete-title" class="ui-dialog-title">Eliminar categoría</h2>
+        <p class="ui-dialog-description" id="uc-delete-text">¿Eliminar esta categoría?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="uc-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="uc-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/ubicaciones-categorias.js" defer></script>
+  </body>
+</html>

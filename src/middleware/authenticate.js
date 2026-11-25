@@ -14,6 +14,8 @@ const PUBLIC_PATHS = new Set([
   '/catalogos/unidades-medida',
   '/catalogos/lotes-tipos',
   '/catalogos/referencias-tipos',
+  '/catalogos/ubicaciones',
+  '/catalogos/ubicaciones-categorias',
   '/operacion/lotes',
   '/operacion/expediciones',
 ]);

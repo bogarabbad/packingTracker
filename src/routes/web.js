@@ -38,6 +38,14 @@ router.get('/catalogos/referencias-tipos', (req, res) => {
   res.render('referencias-tipos');
 });
 
+router.get('/catalogos/ubicaciones', (req, res) => {
+  res.render('ubicaciones');
+});
+
+router.get('/catalogos/ubicaciones-categorias', (req, res) => {
+  res.render('ubicaciones-categorias');
+});
+
 router.get('/operacion/lotes', (req, res) => {
   res.render('lotes');
 });

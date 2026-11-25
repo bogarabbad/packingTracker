@@ -1,5 +1,5 @@
 <%#
-  active: 'dashboard' | 'lotes' | 'expediciones' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos'
+  active: 'dashboard' | 'lotes' | 'expediciones' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos' | 'ubicaciones' | 'ubicaciones-categorias'
 %>
 <%
   const active = locals.active || '';
@@ -30,6 +30,14 @@
     </a>
     <a href="/catalogos/unidades-estatus" class="<%= navClass('unidades-estatus') %>">
       Estatus
+    </a>
+
+    <p class="ui-sidebar-section">Ubicaciones</p>
+    <a href="/catalogos/ubicaciones" class="<%= navClass('ubicaciones') %>">
+      Ubicaciones
+    </a>
+    <a href="/catalogos/ubicaciones-categorias" class="<%= navClass('ubicaciones-categorias') %>">
+      Categorías
     </a>
 
     <p class="ui-sidebar-section">Catálogos</p>

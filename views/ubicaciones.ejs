@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ubicaciones · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'ubicaciones' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Ubicaciones' }) %>
+        <main class="ui-page ui-page-wide">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="ub-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nueva ubicación',
+              variant: 'default',
+              size: 'md',
+              id: 'ub-btn-new'
+            }) %>
+          </section>
+
+          <section class="grid gap-6 lg:grid-cols-[18rem_1fr]">
+            <%- include('partials/card', {
+              title: 'Árbol',
+              description: 'Navega por padre e hijos.',
+              body: `
+                <nav id="ub-tree-nav" class="mb-3 flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-label="Ruta de ubicación"></nav>
+                <div id="ub-tree" class="ui-tree" aria-label="Árbol de ubicaciones">
+                  <p class="text-sm text-muted-foreground">Cargando…</p>
+                </div>
+              `
+            }) %>
+
+            <div class="grid gap-6 min-w-0">
+              <form id="ub-filters" class="ui-filters">
+                <div class="flex flex-col gap-2">
+                  <label class="ui-label" for="ub-filter-q">Buscar</label>
+                  <input class="ui-input" id="ub-filter-q" name="q" placeholder="Código o nombre" autocomplete="off" />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="ui-label" for="ub-filter-categoria">Categoría</label>
+                  <select class="ui-input" id="ub-filter-categoria" name="id_categoria">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="ui-label" for="ub-filter-padre">Padre</label>
+                  <select class="ui-input" id="ub-filter-padre" name="padre_id">
+                    <option value="">Todos</option>
+                    <option value="raiz">Solo raíces</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="ui-label" for="ub-filter-activo">Activo</label>
+                  <select class="ui-input" id="ub-filter-activo" name="activo">
+                    <option value="">Todos</option>
+                    <option value="true">Activas</option>
+                    <option value="false">Inactivas</option>
+                  </select>
+                </div>
+                <div class="ui-filters-actions">
+                  <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+                  <button type="button" id="ub-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+                </div>
+              </form>
+
+              <%- include('partials/card', {
+                body: `
+                  <div class="ui-table-wrap">
+                    <table class="ui-table" aria-label="Ubicaciones">
+                      <thead>
+                        <tr>
+                          <th scope="col">Código</th>
+                          <th scope="col">Nombre</th>
+                          <th scope="col">Categoría</th>
+                          <th scope="col">Padre</th>
+                          <th scope="col">Activo</th>
+                          <th scope="col" class="text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody id="ub-tbody">
+                        <tr>
+                          <td colspan="6" class="text-muted-foreground">Sin registros.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p id="ub-page-label" class="text-sm text-muted-foreground"></p>
+                    <div class="flex gap-2">
+                      <button type="button" id="ub-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                      <button type="button" id="ub-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                    </div>
+                  </div>
+                `
+              }) %>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="ub-form-dialog" class="ui-dialog-panel" aria-labelledby="ub-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ub-form-title" class="ui-dialog-title">Nueva ubicación</h2>
+      </header>
+      <form id="ub-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="ub-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ub-codigo">Código</label>
+          <input class="ui-input" id="ub-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ub-nombre">Nombre</label>
+          <input class="ui-input" id="ub-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ub-id-categoria">Categoría</label>
+          <select class="ui-input" id="ub-id-categoria" name="ID_CATEGORIA" required></select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="ub-padre-id">Padre</label>
+          <select class="ui-input" id="ub-padre-id" name="PADRE_ID">
+            <option value="">Sin padre (raíz)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="ub-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="ub-activo">Activa</label>
+        </div>
+        <p id="ub-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="ub-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="ub-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="ub-delete-dialog" class="ui-dialog-panel" aria-labelledby="ub-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="ub-delete-title" class="ui-dialog-title">Eliminar ubicación</h2>
+        <p class="ui-dialog-description" id="ub-delete-text">¿Eliminar esta ubicación?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="ub-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="ub-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/ubicaciones.js" defer></script>
+  </body>
+</html>

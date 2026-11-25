@@ -1,4 +1,4 @@
--- Esquema vigente de packing_tracker. Incluye hasta la migración 0025.
+-- Esquema vigente de packing_tracker. Incluye hasta la migración 0026.
 -- Ejecutar una sola vez sobre una base vacía, como usuario packing:
 --   psql -U packing -d packing_tracker -f db/init.sql
 -- Este script deja la base en la versión más avanzada.
