@@ -84,3 +84,23 @@ Un dispositivo nuevo nace con `NOMBRE: null` y `ID_TIPO` = semilla `DISPOSITIVOS
 - `ES_SEMILLA`: `true`
 
 No se elimina; se puede actualizar.
+
+## Uso del API tras el enrollment
+
+En cada petición autenticada la app envía el mismo token del QR:
+
+```http
+Authorization: Bearer <TOKEN>
+```
+
+El middleware acepta ese Bearer igual que un JWT de usuario, si el token:
+
+- está `ACTIVO`
+- no ha vencido (`EXPIRA_EN` nulo o futuro)
+- ya está ligado a un dispositivo (`ID_DISPOSITIVO` no nulo)
+- ese dispositivo está `ACTIVO`
+
+Si no cumple, responde `401` con `invalid_token`, `token_inactive`, `token_expired`,
+`token_not_bound` o `dispositivo_inactive`.
+
+Cada uso autenticado actualiza `ULTIMO_USO_EN` del token.

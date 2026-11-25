@@ -1,4 +1,5 @@
 const { verifyAccessToken } = require('../auth/token');
+const { resolveDeviceToken } = require('../auth/deviceToken');
 const { httpError } = require('../httpError');
 const { sendError } = require('../respond');
 
@@ -24,7 +25,12 @@ const PUBLIC_PATHS = new Set([
   '/operacion/expediciones',
 ]);
 
-function authenticate(req, res, next) {
+function looksLikeJwt(token) {
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((part) => part.length > 0);
+}
+
+async function authenticate(req, res, next) {
   if (
     PUBLIC_PATHS.has(req.path)
     || req.path.startsWith('/css/')
@@ -48,16 +54,23 @@ function authenticate(req, res, next) {
   }
 
   try {
-    const payload = verifyAccessToken(token);
-    const userId = Number(payload.sub);
-    if (!Number.isInteger(userId) || userId < 1) {
-      throw httpError(401, 'invalid_token');
+    if (looksLikeJwt(token)) {
+      const payload = verifyAccessToken(token);
+      const userId = Number(payload.sub);
+      if (!Number.isInteger(userId) || userId < 1) {
+        throw httpError(401, 'invalid_token');
+      }
+
+      req.auth = {
+        kind: 'usuario',
+        userId,
+        codigo: payload.codigo,
+      };
+      next();
+      return;
     }
 
-    req.auth = {
-      userId,
-      codigo: payload.codigo,
-    };
+    req.auth = await resolveDeviceToken(token);
     next();
   } catch (err) {
     if (err.publicError) {

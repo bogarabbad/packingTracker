@@ -33,9 +33,11 @@ info:
 
     Una ruta que no existe responde `404`. El código queda en `error.error` como `not_found` y la ruta en `error.path`.
 
-    Todas las rutas exigen un JWT Bearer, salvo `GET /health`, `POST /auth/login`
+    Todas las rutas exigen Bearer, salvo `GET /health`, `POST /auth/login`
     y `POST /enrollment`.
-    El login autentica contra `USUARIOS` y firma un access token HS256.
+    El login autentica contra `USUARIOS` y firma un access token JWT HS256.
+    Un dispositivo enrollado autentica con `Authorization: Bearer <TOKEN>`
+    usando el valor de `AUTORIZACION_TOKENS` (el mismo del QR).
     El enrollment vincula un dispositivo Android a un token de autorización libre.
 security:
   - BearerAuth: []
@@ -161,10 +163,14 @@ tags:
   - name: Tokens de autorización
     description: |
       Registro `AUTORIZACION_TOKENS`.
-      Tokens de acceso al API sin login web.
-      `ID_DISPOSITIVO` puede ser nulo hasta vincular el token (token libre).
+      Tras el enrollment, el mismo `TOKEN` autentica al dispositivo en el API:
+      `Authorization: Bearer <TOKEN>`.
+      Debe estar activo, no vencido, ligado a un dispositivo (`ID_DISPOSITIVO`)
+      y ese dispositivo debe estar activo.
+      `ID_DISPOSITIVO` puede ser nulo hasta vincular el token (token libre);
+      un token libre no autentica peticiones.
       En la plataforma web el valor `TOKEN` se muestra como QR para enrollment.
-      `ULTIMO_USO_EN` lo escribe el servicio; el cliente no lo envía.
+      `ULTIMO_USO_EN` lo escribe el servicio en cada uso autenticado.
   - name: Enrollment
     description: |
       Alta automática de un dispositivo Android al escanear un QR de token.
@@ -184,6 +190,8 @@ tags:
       6. Vincula el token al dispositivo (`ID_DISPOSITIVO`) y actualiza
          `ULTIMO_USO_EN`.
       7. El operador completa nombre y tipo del dispositivo en la web.
+      8. La app guarda el `TOKEN` y lo envía en peticiones posteriores como
+         `Authorization: Bearer <TOKEN>` (mismo esquema Bearer que el JWT web).
 
       El contenido del QR es exactamente el string `TOKEN` (no una URL).
       Reenviar el mismo par token+identificador ya vinculados es idempotente (`200`).
@@ -2563,10 +2571,15 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      bearerFormat: JWT o token de dispositivo
       description: |
-        Access token emitido por `POST /auth/login`.
-        Enviar `Authorization: Bearer <token>`.
+        Dos credenciales válidas en `Authorization: Bearer <valor>`:
+
+        1. JWT de usuario emitido por `POST /auth/login` (tres segmentos separados por `.`).
+        2. Token de dispositivo: valor de `AUTORIZACION_TOKENS.TOKEN` tras enrollment.
+           Requisitos: token activo, no vencido, con `ID_DISPOSITIVO` asignado,
+           y dispositivo activo. Si falla: `invalid_token`, `token_inactive`,
+           `token_expired`, `token_not_bound` o `dispositivo_inactive`.
   parameters:
     Id:
       name: id
