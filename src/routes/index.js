@@ -14,6 +14,9 @@ const ubicaciones = require('./ubicaciones');
 const recepciones = require('./recepciones');
 const recepcionesLotes = require('./recepcionesLotes');
 const lotesUbicaciones = require('./lotesUbicaciones');
+const dispositivosTipos = require('./dispositivosTipos');
+const dispositivos = require('./dispositivos');
+const autorizacionTokens = require('./autorizacionTokens');
 
 const router = express.Router();
 
@@ -35,6 +38,9 @@ router.use('/lotes-productos', lotesProductos);
 router.use('/lotes', lotes);
 router.use('/expediciones-lotes', expedicionesLotes);
 router.use('/expediciones', expediciones);
+router.use('/dispositivos-tipos', dispositivosTipos);
+router.use('/dispositivos', dispositivos);
+router.use('/autorizacion-tokens', autorizacionTokens);
 router.use('/unidades-medida', createCatalogRouter('UNIDADES'));
 router.use('/unidades-transporte', unidadesTransporte);
 

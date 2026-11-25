@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispositivos · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'dispositivos' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Dispositivos' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="di-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo dispositivo',
+              variant: 'default',
+              size: 'md',
+              id: 'di-btn-new'
+            }) %>
+          </section>
+
+          <form id="di-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="di-filter-q">Buscar</label>
+              <input class="ui-input" id="di-filter-q" name="q" placeholder="Identificador o nombre" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="di-filter-tipo">Tipo</label>
+              <select class="ui-input" id="di-filter-tipo" name="id_tipo">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="di-filter-activo">Activo</label>
+              <select class="ui-input" id="di-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="di-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Dispositivos">
+                  <thead>
+                    <tr>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Identificador</th>
+                      <th scope="col">Tipo</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="di-tbody">
+                    <tr>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="di-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="di-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="di-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="di-form-dialog" class="ui-dialog-panel" aria-labelledby="di-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="di-form-title" class="ui-dialog-title">Nuevo dispositivo</h2>
+      </header>
+      <form id="di-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="di-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="di-nombre">Nombre</label>
+          <input class="ui-input" id="di-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="di-identificador">Identificador</label>
+          <input class="ui-input" id="di-identificador" name="IDENTIFICADOR" required autocomplete="off" />
+          <p class="text-xs text-muted-foreground">UUID estable del equipo en la app Android.</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="di-id-tipo">Tipo</label>
+          <select class="ui-input" id="di-id-tipo" name="ID_TIPO" required></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="di-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="di-activo">Activo</label>
+        </div>
+        <p id="di-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="di-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="di-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="di-delete-dialog" class="ui-dialog-panel" aria-labelledby="di-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="di-delete-title" class="ui-dialog-title">Eliminar dispositivo</h2>
+        <p class="ui-dialog-description" id="di-delete-text">¿Eliminar este dispositivo?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="di-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="di-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/dispositivos.js" defer></script>
+  </body>
+</html>

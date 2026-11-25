@@ -1,5 +1,5 @@
 <%#
-  active: 'dashboard' | 'lotes' | 'expediciones' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos' | 'ubicaciones' | 'ubicaciones-categorias'
+  active: 'dashboard' | 'lotes' | 'expediciones' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos' | 'ubicaciones' | 'ubicaciones-categorias' | 'dispositivos' | 'dispositivos-tipos' | 'autorizacion-tokens'
 %>
 <%
   const active = locals.active || '';
@@ -38,6 +38,17 @@
     </a>
     <a href="/catalogos/ubicaciones-categorias" class="<%= navClass('ubicaciones-categorias') %>">
       Categorías
+    </a>
+
+    <p class="ui-sidebar-section">Dispositivos</p>
+    <a href="/catalogos/dispositivos" class="<%= navClass('dispositivos') %>">
+      Dispositivos
+    </a>
+    <a href="/catalogos/dispositivos-tipos" class="<%= navClass('dispositivos-tipos') %>">
+      Tipos
+    </a>
+    <a href="/catalogos/autorizacion-tokens" class="<%= navClass('autorizacion-tokens') %>">
+      Tokens
     </a>
 
     <p class="ui-sidebar-section">Catálogos</p>

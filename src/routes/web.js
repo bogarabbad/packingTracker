@@ -46,6 +46,18 @@ router.get('/catalogos/ubicaciones-categorias', (req, res) => {
   res.render('ubicaciones-categorias');
 });
 
+router.get('/catalogos/dispositivos', (req, res) => {
+  res.render('dispositivos');
+});
+
+router.get('/catalogos/dispositivos-tipos', (req, res) => {
+  res.render('dispositivos-tipos');
+});
+
+router.get('/catalogos/autorizacion-tokens', (req, res) => {
+  res.render('autorizacion-tokens');
+});
+
 router.get('/operacion/lotes', (req, res) => {
   res.render('lotes');
 });

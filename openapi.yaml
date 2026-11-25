@@ -17,7 +17,8 @@ info:
     `EXPEDICIONES_LOTES`, el CRUD de `UNIDADES_TRANSPORTE`,
     el CRUD de `UBICACIONES_CATEGORIAS` y `UBICACIONES`,
     el CRUD de `LOTES_UBICACIONES_TIPOS` y `LOTES_UBICACIONES`,
-    y el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`.
+    el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`,
+    y el CRUD de `DISPOSITIVOS_TIPOS`, `DISPOSITIVOS` y `AUTORIZACION_TOKENS`.
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -142,6 +143,21 @@ tags:
     description: |
       Registro `UNIDADES_TRANSPORTE`.
       `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` los asigna el servicio.
+  - name: Tipos de dispositivo
+    description: |
+      Catálogo `DISPOSITIVOS_TIPOS`.
+      Clasifica equipos móviles por marca, modelo y sistema operativo.
+  - name: Dispositivos
+    description: |
+      Registro `DISPOSITIVOS`.
+      `IDENTIFICADOR` es el UUID estable del equipo (app Android).
+      Cada dispositivo exige `ID_TIPO`.
+  - name: Tokens de autorización
+    description: |
+      Registro `AUTORIZACION_TOKENS`.
+      Tokens de acceso al API sin login web.
+      `ID_DISPOSITIVO` puede ser nulo hasta vincular el token.
+      `ULTIMO_USO_EN` lo escribe el servicio; el cliente no lo envía.
 paths:
   /health:
     get:
@@ -2099,6 +2115,308 @@ paths:
           $ref: '#/components/responses/NoEncontrado'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /dispositivos-tipos:
+    get:
+      tags: [Tipos de dispositivo]
+      operationId: listDispositivosTipos
+      summary: Lista los tipos de dispositivo
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/TieneEscaner'
+      responses:
+        '200':
+          description: Tipos ordenados por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivoTipoLista'
+        '400':
+          description: Paginación, `q`, `activo` o `tiene_escaner` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tipos de dispositivo]
+      operationId: createDispositivoTipo
+      summary: Crea un tipo de dispositivo
+      requestBody:
+        $ref: '#/components/requestBodies/DispositivoTipo'
+      responses:
+        '201':
+          description: Tipo creado. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivoTipo'
+        '400':
+          $ref: '#/components/responses/ErrorDispositivoTipo'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /dispositivos-tipos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de dispositivo]
+      operationId: getDispositivoTipo
+      summary: Obtiene un tipo de dispositivo
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivoTipo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tipos de dispositivo]
+      operationId: updateDispositivoTipo
+      summary: Reemplaza un tipo de dispositivo
+      description: |
+        Si `ACTIVO` o `TIENE_ESCANER` no vienen, se guardan `true`.
+        Textos opcionales omitidos o `null` quedan `null`.
+        `ES_SEMILLA` no cambia.
+      requestBody:
+        $ref: '#/components/requestBodies/DispositivoTipo'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivoTipo'
+        '400':
+          $ref: '#/components/responses/ErrorDispositivoTipo'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tipos de dispositivo]
+      operationId: deleteDispositivoTipo
+      summary: Elimina un tipo de dispositivo
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /dispositivos:
+    get:
+      tags: [Dispositivos]
+      operationId: listDispositivos
+      summary: Lista los dispositivos
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/IdTipoDispositivo'
+      responses:
+        '200':
+          description: Dispositivos ordenados por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivoLista'
+        '400':
+          description: Paginación, `q`, `activo` o `id_tipo` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Dispositivos]
+      operationId: createDispositivo
+      summary: Crea un dispositivo
+      requestBody:
+        $ref: '#/components/requestBodies/Dispositivo'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivo'
+        '400':
+          $ref: '#/components/responses/ErrorDispositivo'
+        '409':
+          $ref: '#/components/responses/ConflictoDispositivo'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /dispositivos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Dispositivos]
+      operationId: getDispositivo
+      summary: Obtiene un dispositivo
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Dispositivos]
+      operationId: updateDispositivo
+      summary: Reemplaza un dispositivo
+      description: Si `ACTIVO` no viene, se guarda `true`.
+      requestBody:
+        $ref: '#/components/requestBodies/Dispositivo'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDispositivo'
+        '400':
+          $ref: '#/components/responses/ErrorDispositivo'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoDispositivo'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Dispositivos]
+      operationId: deleteDispositivo
+      summary: Elimina un dispositivo
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /autorizacion-tokens:
+    get:
+      tags: [Tokens de autorización]
+      operationId: listAutorizacionTokens
+      summary: Lista los tokens de autorización
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/IdDispositivo'
+      responses:
+        '200':
+          description: Tokens ordenados por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutorizacionTokenLista'
+        '400':
+          description: Paginación, `q`, `activo` o `id_dispositivo` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Tokens de autorización]
+      operationId: createAutorizacionToken
+      summary: Crea un token de autorización
+      requestBody:
+        $ref: '#/components/requestBodies/AutorizacionToken'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutorizacionToken'
+        '400':
+          $ref: '#/components/responses/ErrorAutorizacionToken'
+        '409':
+          $ref: '#/components/responses/ConflictoAutorizacionToken'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /autorizacion-tokens/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tokens de autorización]
+      operationId: getAutorizacionToken
+      summary: Obtiene un token de autorización
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutorizacionToken'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Tokens de autorización]
+      operationId: updateAutorizacionToken
+      summary: Reemplaza un token de autorización
+      description: |
+        Si `ACTIVO` no viene, se guarda `true`.
+        Si `ID_DISPOSITIVO` o `EXPIRA_EN` no vienen, quedan `null`.
+        `ULTIMO_USO_EN` se ignora.
+      requestBody:
+        $ref: '#/components/requestBodies/AutorizacionToken'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutorizacionToken'
+        '400':
+          $ref: '#/components/responses/ErrorAutorizacionToken'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoAutorizacionToken'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Tokens de autorización]
+      operationId: deleteAutorizacionToken
+      summary: Elimina un token de autorización
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
 components:
   securitySchemes:
     BearerAuth:
@@ -2175,6 +2493,30 @@ components:
       schema:
         type: string
         pattern: '^[1-9]\d*$'
+    IdTipoDispositivo:
+      name: id_tipo
+      in: query
+      required: false
+      description: Filtra por tipo de dispositivo. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    IdDispositivo:
+      name: id_dispositivo
+      in: query
+      required: false
+      description: Filtra por dispositivo. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    TieneEscaner:
+      name: tiene_escaner
+      in: query
+      required: false
+      description: Filtra por `TIENE_ESCANER`. `true`/`1` o `false`/`0`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
     UbicacionId:
       name: ubicacion_id
       in: query
@@ -2442,6 +2784,48 @@ components:
             CODIGO: nave
             NOMBRE: Nave
             ACTIVO: true
+    DispositivoTipo:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DispositivoTipoEntrada'
+          example:
+            CODIGO: honeywell-ck65
+            NOMBRE: Honeywell CK65
+            MARCA: Honeywell
+            MODELO: CK65
+            SISTEMA_OPERATIVO: Android
+            VERSION_SO_MINIMA: '8.0'
+            NUMERO_PARTE: CK65-L0N-50C1A0G
+            TIENE_ESCANER: true
+            DESCRIPCION: Computadora móvil de almacén
+            ACTIVO: true
+    Dispositivo:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DispositivoEntrada'
+          example:
+            ID_TIPO: 1
+            IDENTIFICADOR: 550e8400-e29b-41d4-a716-446655440000
+            NOMBRE: CK65 muelle 3
+            ACTIVO: true
+    AutorizacionToken:
+      required: true
+      description: |
+        `ULTIMO_USO_EN`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AutorizacionTokenEntrada'
+          example:
+            ID_DISPOSITIVO: 1
+            TOKEN: pkt_live_ejemplo
+            NOMBRE: Token CK65 muelle 3
+            ACTIVO: true
+            EXPIRA_EN: null
     Ubicacion:
       required: true
       content:
@@ -3087,6 +3471,55 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/RespuestaError'
+    ErrorDispositivoTipo:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_nombre`, `invalid_marca`, `invalid_modelo`, `invalid_sistema_operativo`,
+        `invalid_version_so_minima`, `invalid_numero_parte`, `invalid_tiene_escaner`,
+        `invalid_descripcion`, `invalid_activo` o `invalid_dispositivo_tipo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorDispositivo:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_tipo`,
+        `invalid_identificador`, `invalid_nombre`, `invalid_activo` o `invalid_dispositivo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ConflictoDispositivo:
+      description: `duplicate_identificador` si el UUID del equipo ya existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: duplicate_identificador
+    ErrorAutorizacionToken:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_dispositivo`,
+        `invalid_token`, `invalid_nombre`, `invalid_activo`, `invalid_expira_en`
+        o `invalid_autorizacion_token`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ConflictoAutorizacionToken:
+      description: `duplicate_token` si el token ya existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          example:
+            data: null
+            _metadata: {}
+            error:
+              error: duplicate_token
     ErrorInterno:
       description: Fallo no controlado del servicio.
       content:
@@ -4630,6 +5063,224 @@ components:
           type: integer
           nullable: true
           minimum: 1
+    DispositivoTipo:
+      type: object
+      required:
+        - ID
+        - CODIGO
+        - NOMBRE
+        - MARCA
+        - MODELO
+        - SISTEMA_OPERATIVO
+        - VERSION_SO_MINIMA
+        - NUMERO_PARTE
+        - TIENE_ESCANER
+        - DESCRIPCION
+        - ACTIVO
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        MARCA:
+          type: string
+          minLength: 1
+        MODELO:
+          type: string
+          minLength: 1
+        SISTEMA_OPERATIVO:
+          type: string
+          minLength: 1
+        VERSION_SO_MINIMA:
+          type: string
+          nullable: true
+          minLength: 1
+        NUMERO_PARTE:
+          type: string
+          nullable: true
+          minLength: 1
+        TIENE_ESCANER:
+          type: boolean
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    DispositivoTipoEntrada:
+      type: object
+      required: [CODIGO, NOMBRE, MARCA, MODELO, SISTEMA_OPERATIVO]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        MARCA:
+          type: string
+          minLength: 1
+        MODELO:
+          type: string
+          minLength: 1
+        SISTEMA_OPERATIVO:
+          type: string
+          minLength: 1
+        VERSION_SO_MINIMA:
+          type: string
+          nullable: true
+          minLength: 1
+        NUMERO_PARTE:
+          type: string
+          nullable: true
+          minLength: 1
+        TIENE_ESCANER:
+          type: boolean
+          default: true
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    Dispositivo:
+      type: object
+      required: [ID, ID_TIPO, IDENTIFICADOR, NOMBRE, ACTIVO, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_TIPO:
+          type: integer
+          minimum: 1
+          description: Referencia a `DISPOSITIVOS_TIPOS`.
+        IDENTIFICADOR:
+          type: string
+          minLength: 1
+          description: UUID estable del equipo en la app Android.
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    DispositivoEntrada:
+      type: object
+      required: [ID_TIPO, IDENTIFICADOR, NOMBRE]
+      properties:
+        ID_TIPO:
+          type: integer
+          minimum: 1
+        IDENTIFICADOR:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: '`CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    AutorizacionToken:
+      type: object
+      required:
+        - ID
+        - ID_DISPOSITIVO
+        - TOKEN
+        - NOMBRE
+        - ACTIVO
+        - EXPIRA_EN
+        - ULTIMO_USO_EN
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_DISPOSITIVO:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Referencia a `DISPOSITIVOS`. Puede ser nulo.
+        TOKEN:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        EXPIRA_EN:
+          type: string
+          format: date-time
+          nullable: true
+        ULTIMO_USO_EN:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    AutorizacionTokenEntrada:
+      type: object
+      required: [TOKEN, NOMBRE]
+      properties:
+        ID_DISPOSITIVO:
+          type: integer
+          nullable: true
+          minimum: 1
+        TOKEN:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+        EXPIRA_EN:
+          type: string
+          format: date-time
+          nullable: true
+      description: |
+        `ULTIMO_USO_EN`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     RespuestaUbicacionCategoria:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -4718,5 +5369,59 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/RecepcionLote'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaDispositivoTipo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DispositivoTipo'
+    RespuestaDispositivoTipoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DispositivoTipo'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaDispositivo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Dispositivo'
+    RespuestaDispositivoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Dispositivo'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaAutorizacionToken:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AutorizacionToken'
+    RespuestaAutorizacionTokenLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AutorizacionToken'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'

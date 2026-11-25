@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tipos de dispositivo · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'dispositivos-tipos' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Tipos de dispositivo' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="dt-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo tipo',
+              variant: 'default',
+              size: 'md',
+              id: 'dt-btn-new'
+            }) %>
+          </section>
+
+          <form id="dt-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="dt-filter-q">Buscar</label>
+              <input class="ui-input" id="dt-filter-q" name="q" placeholder="Código, marca, modelo…" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="dt-filter-escaner">Escáner</label>
+              <select class="ui-input" id="dt-filter-escaner" name="tiene_escaner">
+                <option value="">Todos</option>
+                <option value="true">Con escáner</option>
+                <option value="false">Sin escáner</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="dt-filter-activo">Activo</label>
+              <select class="ui-input" id="dt-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="dt-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Tipos de dispositivo">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Marca</th>
+                      <th scope="col">Modelo</th>
+                      <th scope="col">SO</th>
+                      <th scope="col">Escáner</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dt-tbody">
+                    <tr>
+                      <td colspan="8" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="dt-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="dt-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="dt-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="dt-form-dialog" class="ui-dialog-panel ui-dialog-wide" aria-labelledby="dt-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="dt-form-title" class="ui-dialog-title">Nuevo tipo</h2>
+      </header>
+      <form id="dt-form" class="mt-4 grid gap-4 sm:grid-cols-2">
+        <input type="hidden" id="dt-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-codigo">Código</label>
+          <input class="ui-input" id="dt-codigo" name="CODIGO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-nombre">Nombre</label>
+          <input class="ui-input" id="dt-nombre" name="NOMBRE" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-marca">Marca</label>
+          <input class="ui-input" id="dt-marca" name="MARCA" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-modelo">Modelo</label>
+          <input class="ui-input" id="dt-modelo" name="MODELO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-so">Sistema operativo</label>
+          <input class="ui-input" id="dt-so" name="SISTEMA_OPERATIVO" required autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-version-so">Versión SO mínima</label>
+          <input class="ui-input" id="dt-version-so" name="VERSION_SO_MINIMA" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="dt-numero-parte">Número de parte</label>
+          <input class="ui-input" id="dt-numero-parte" name="NUMERO_PARTE" autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-2 sm:col-span-2">
+          <label class="ui-label" for="dt-descripcion">Descripción</label>
+          <input class="ui-input" id="dt-descripcion" name="DESCRIPCION" autocomplete="off" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="dt-tiene-escaner" name="TIENE_ESCANER" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="dt-tiene-escaner">Tiene escáner</label>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="dt-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="dt-activo">Activo</label>
+        </div>
+        <p id="dt-form-error" class="hidden text-sm text-destructive sm:col-span-2" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+          <button type="button" id="dt-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="dt-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="dt-delete-dialog" class="ui-dialog-panel" aria-labelledby="dt-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="dt-delete-title" class="ui-dialog-title">Eliminar tipo</h2>
+        <p class="ui-dialog-description" id="dt-delete-text">¿Eliminar este tipo de dispositivo?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="dt-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="dt-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/dispositivos-tipos.js" defer></script>
+  </body>
+</html>

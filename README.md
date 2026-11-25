@@ -66,7 +66,7 @@ There is no user-management API (only login against `USUARIOS`). `hashPassword` 
 │   ├── create_database.sql   # first-time role and empty database (run as a superuser)
 │   ├── init.sql              # current schema and catalog seed for a new database
 │   ├── seed.sql              # optional sample transport units
-│   └── migrations/           # incremental SQL migrations (0001–0025)
+│   └── migrations/           # incremental SQL migrations (0001–0028)
 ├── src/
 │   ├── server.js             # process entry
 │   ├── app.js
@@ -122,7 +122,7 @@ Optional sample transport units:
 psql -U packing -d packing_tracker -f db/seed.sql
 ```
 
-`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0026`.
+`init.sql` is written to leave a new database on the latest schema. Do not also run `db/migrations/` after `init.sql` on a fresh database. Use the numbered migrations only to upgrade an existing database that was created from an earlier version. The header states that the script includes through migration `0028`.
 
 ### Configuration
 
