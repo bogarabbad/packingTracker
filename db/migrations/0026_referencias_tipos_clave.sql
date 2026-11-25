@@ -1,4 +1,4 @@
--- Migración 0021. REFERENCIAS_TIPOS.CLAVE es la abreviatura del tipo de referencia.
+-- Migración 0026. REFERENCIAS_TIPOS.CLAVE es la abreviatura del tipo de referencia.
 -- Packing nace con CLAVE = P. No editar este archivo. El siguiente cambio va
 -- en una migración nueva y debe reflejarse en db/init.sql.
 

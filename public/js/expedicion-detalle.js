@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_unidad: 'Unidad de transporte inválida.',
       invalid_fecha_cierre: 'Fecha de cierre inválida.',
       invalid_id_ubicacion_salida: 'ID de ubicación inválido.',
-      invalid_clave_ubicacion_salida: 'Clave de ubicación inválida.',
+      invalid_ubicacion_salida_id: 'Ubicación de salida inválida.',
       invalid_id_lote: 'Lote inválido, con padre o no disponible.',
       invalid_id_expedicion: 'Expedición inválida.',
       lote_ya_embarcado: 'Ese lote ya está embarcado en otra expedición.',
@@ -481,8 +481,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (row.ID_UBICACION_SALIDA != null) {
       ubicacionParts.push(`ID ${row.ID_UBICACION_SALIDA}`);
     }
-    if (row.CLAVE_UBICACION_SALIDA) {
-      ubicacionParts.push(row.CLAVE_UBICACION_SALIDA);
+    if (row.UBICACION_SALIDA_ID != null) {
+      ubicacionParts.push(`Ubicación ${row.UBICACION_SALIDA_ID}`);
     }
     document.getElementById('exd-stat-ubicacion').textContent =
       ubicacionParts.length ? ubicacionParts.join(' · ') : '—';
@@ -618,7 +618,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     unidadSelect.value = String(row.ID_UNIDAD);
     document.getElementById('exd-id-ubicacion').value =
       row.ID_UBICACION_SALIDA == null ? '' : String(row.ID_UBICACION_SALIDA);
-    document.getElementById('exd-clave-ubicacion').value = row.CLAVE_UBICACION_SALIDA || '';
+    document.getElementById('exd-ubicacion-salida').value =
+      row.UBICACION_SALIDA_ID == null ? '' : String(row.UBICACION_SALIDA_ID);
     document.getElementById('exd-fecha-cierre').value = toLocalInput(row.FECHA_CIERRE);
     formDialog.showModal();
   }
@@ -777,7 +778,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ID_UNIDAD: row.ID_UNIDAD,
         FECHA_CIERRE: new Date().toISOString(),
         ID_UBICACION_SALIDA: row.ID_UBICACION_SALIDA,
-        CLAVE_UBICACION_SALIDA: row.CLAVE_UBICACION_SALIDA,
+        UBICACION_SALIDA_ID: row.UBICACION_SALIDA_ID,
         ...sessionUsuario(),
       }),
     });
@@ -797,7 +798,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       body: JSON.stringify({
         ID_UNIDAD: Number(unidadSelect.value),
         ID_UBICACION_SALIDA: optionalNumber(document.getElementById('exd-id-ubicacion').value),
-        CLAVE_UBICACION_SALIDA: optionalText(document.getElementById('exd-clave-ubicacion').value),
+        UBICACION_SALIDA_ID: optionalNumber(document.getElementById('exd-ubicacion-salida').value),
         FECHA_CIERRE: fromLocalInput(document.getElementById('exd-fecha-cierre').value),
         ...sessionUsuario(),
       }),

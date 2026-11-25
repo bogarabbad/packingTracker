@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_unidad: 'Unidad de transporte inválida.',
       invalid_fecha_cierre: 'Fecha de cierre inválida.',
       invalid_id_ubicacion_salida: 'ID de ubicación inválido.',
-      invalid_clave_ubicacion_salida: 'Clave de ubicación inválida.',
+      invalid_ubicacion_salida_id: 'Ubicación de salida inválida.',
       invalid_usuario_id: 'Usuario inválido.',
       invalid_id_origen_usuario: 'Origen de usuario inválido.',
       invalid_usuario_origen: 'Usuario y origen deben ir juntos.',
@@ -70,11 +70,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       return null;
     }
     return Number(trimmed);
-  }
-
-  function optionalText(value) {
-    const trimmed = String(value ?? '').trim();
-    return trimmed === '' ? null : trimmed;
   }
 
   function showFormError(message) {
@@ -157,7 +152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       unidadSelect.value = String(row.ID_UNIDAD);
       document.getElementById('ex-id-ubicacion').value =
         row.ID_UBICACION_SALIDA == null ? '' : String(row.ID_UBICACION_SALIDA);
-      document.getElementById('ex-clave-ubicacion').value = row.CLAVE_UBICACION_SALIDA || '';
+      document.getElementById('ex-ubicacion-salida').value =
+        row.UBICACION_SALIDA_ID == null ? '' : String(row.UBICACION_SALIDA_ID);
       document.getElementById('ex-fecha-cierre').value = toLocalInput(row.FECHA_CIERRE);
     }
 
@@ -362,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const payload = {
       ID_UNIDAD: Number(unidadSelect.value),
       ID_UBICACION_SALIDA: optionalNumber(document.getElementById('ex-id-ubicacion').value),
-      CLAVE_UBICACION_SALIDA: optionalText(document.getElementById('ex-clave-ubicacion').value),
+      UBICACION_SALIDA_ID: optionalNumber(document.getElementById('ex-ubicacion-salida').value),
       FECHA_CIERRE: idValue
         ? fromLocalInput(document.getElementById('ex-fecha-cierre').value)
         : null,
