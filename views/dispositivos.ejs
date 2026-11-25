@@ -14,12 +14,9 @@
         <main class="ui-page">
           <section class="flex flex-wrap items-center justify-between gap-3">
             <p id="di-status" class="text-sm text-muted-foreground">Cargando…</p>
-            <%- include('partials/button', {
-              label: 'Nuevo dispositivo',
-              variant: 'default',
-              size: 'md',
-              id: 'di-btn-new'
-            }) %>
+            <p class="text-sm text-muted-foreground">
+              Solo se dan de alta por enrollment (QR). Aquí se configuran después.
+            </p>
           </section>
 
           <form id="di-filters" class="ui-filters">
@@ -82,19 +79,18 @@
 
     <dialog id="di-form-dialog" class="ui-dialog-panel" aria-labelledby="di-form-title">
       <header class="flex flex-col gap-2 text-left">
-        <h2 id="di-form-title" class="ui-dialog-title">Nuevo dispositivo</h2>
+        <h2 id="di-form-title" class="ui-dialog-title">Editar dispositivo</h2>
       </header>
       <form id="di-form" class="mt-4 grid gap-4">
         <input type="hidden" id="di-id" value="" />
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="di-nombre">Nombre</label>
           <input class="ui-input" id="di-nombre" name="NOMBRE" autocomplete="off" />
-          <p class="text-xs text-muted-foreground">Opcional. Tras el enrollment suele quedar vacío.</p>
         </div>
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="di-identificador">Identificador</label>
-          <input class="ui-input" id="di-identificador" name="IDENTIFICADOR" required autocomplete="off" />
-          <p class="text-xs text-muted-foreground">UUID estable del equipo en la app Android.</p>
+          <input class="ui-input" id="di-identificador" name="IDENTIFICADOR" readonly autocomplete="off" />
+          <p class="text-xs text-muted-foreground">Lo asigna el enrollment; no se puede cambiar.</p>
         </div>
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="di-id-tipo">Tipo</label>

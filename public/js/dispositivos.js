@@ -36,8 +36,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function mapError(code) {
     const messages = {
-      duplicate_identificador: 'Ya existe un dispositivo con ese identificador.',
-      invalid_identificador: 'Identificador inválido.',
       invalid_nombre: 'Nombre inválido.',
       invalid_id_tipo: 'Tipo inválido.',
       invalid_activo: 'Estado activo inválido.',
@@ -62,18 +60,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${tipo.CODIGO} · ${tipo.NOMBRE}`;
   }
 
-  function fillTipoOptions(select, blankLabel) {
+  function fillTipoOptions(select) {
     const previous = select.value;
     const rows = [...state.tipos.values()]
       .filter((row) => row.ACTIVO)
       .sort((a, b) => a.CODIGO.localeCompare(b.CODIGO, 'es'));
     select.innerHTML = '';
-    if (blankLabel) {
-      const blank = document.createElement('option');
-      blank.value = '';
-      blank.textContent = blankLabel;
-      select.appendChild(blank);
-    }
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Selecciona un tipo';
+    select.appendChild(blank);
     rows.forEach((row) => {
       const option = document.createElement('option');
       option.value = String(row.ID);
@@ -109,23 +105,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFormError('');
     form.reset();
     document.getElementById('di-activo').checked = true;
-    document.getElementById('di-id').value = row ? String(row.ID) : '';
-    formTitle.textContent = row ? 'Editar dispositivo' : 'Nuevo dispositivo';
-    fillTipoOptions(tipoSelect, 'Selecciona un tipo');
+    document.getElementById('di-id').value = String(row.ID);
+    formTitle.textContent = 'Editar dispositivo';
+    fillTipoOptions(tipoSelect);
 
-    if (row) {
-      const tipo = state.tipos.get(Number(row.ID_TIPO));
-      if (tipo && !tipo.ACTIVO) {
-        const option = document.createElement('option');
-        option.value = String(tipo.ID);
-        option.textContent = `${tipo.CODIGO} · ${tipo.NOMBRE} (inactivo)`;
-        tipoSelect.appendChild(option);
-      }
-      document.getElementById('di-nombre').value = row.NOMBRE || '';
-      document.getElementById('di-identificador').value = row.IDENTIFICADOR || '';
-      tipoSelect.value = String(row.ID_TIPO);
-      document.getElementById('di-activo').checked = Boolean(row.ACTIVO);
+    const tipo = state.tipos.get(Number(row.ID_TIPO));
+    if (tipo && !tipo.ACTIVO) {
+      const option = document.createElement('option');
+      option.value = String(tipo.ID);
+      option.textContent = `${tipo.CODIGO} · ${tipo.NOMBRE} (inactivo)`;
+      tipoSelect.appendChild(option);
     }
+    document.getElementById('di-nombre').value = row.NOMBRE || '';
+    document.getElementById('di-identificador').value = row.IDENTIFICADOR || '';
+    tipoSelect.value = String(row.ID_TIPO);
+    document.getElementById('di-activo').checked = Boolean(row.ACTIVO);
 
     formDialog.showModal();
   }
@@ -225,7 +219,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     fillFilterTipo();
   }
 
-  document.getElementById('di-btn-new').addEventListener('click', () => openForm(null));
   document.getElementById('di-form-cancel').addEventListener('click', closeForm);
 
   document.getElementById('di-filters').addEventListener('submit', async (event) => {
@@ -322,6 +315,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFormError('');
 
     const idValue = document.getElementById('di-id').value;
+    if (!idValue) {
+      showFormError('Solo se pueden editar dispositivos existentes.');
+      return;
+    }
+
     const idTipo = Number(tipoSelect.value);
     if (!Number.isInteger(idTipo) || idTipo < 1) {
       showFormError(mapError('invalid_id_tipo'));
@@ -331,7 +329,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nombre = document.getElementById('di-nombre').value.trim();
     const payload = {
       NOMBRE: nombre === '' ? null : nombre,
-      IDENTIFICADOR: document.getElementById('di-identificador').value.trim(),
       ID_TIPO: idTipo,
       ACTIVO: document.getElementById('di-activo').checked,
     };
@@ -339,15 +336,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     submit.disabled = true;
 
     try {
-      const result = idValue
-        ? await window.PackingApi.request(`/dispositivos/${idValue}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        })
-        : await window.PackingApi.request('/dispositivos', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
+      const result = await window.PackingApi.request(`/dispositivos/${idValue}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
 
       if (!result.ok) {
         showFormError(mapError(result.error));
@@ -356,10 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       closeForm();
-      window.PackingToast.toast(idValue ? 'Dispositivo actualizado' : 'Dispositivo creado');
-      if (!idValue) {
-        state.page = 1;
-      }
+      window.PackingToast.toast('Dispositivo actualizado');
       await loadList();
     } catch {
       showFormError('Error de red.');

@@ -39,6 +39,11 @@ info:
     Un dispositivo enrollado autentica con `Authorization: Bearer <TOKEN>`
     usando el valor de `AUTORIZACION_TOKENS` (el mismo del QR).
     El enrollment vincula un dispositivo Android a un token de autorización libre.
+
+    Prefijos de escaneo (lista estática, ver `PrefijosEscaneo`): la app Android
+    interpreta el inicio del string escaneado y despacha una acción. Hoy solo
+    existe `PTENR|` → acción `enrollment`. El QR de enrollment codifica
+    `PTENR|<AUTORIZACION_TOKENS.TOKEN>`.
 security:
   - BearerAuth: []
 servers:
@@ -156,10 +161,10 @@ tags:
   - name: Dispositivos
     description: |
       Registro `DISPOSITIVOS`.
-      `IDENTIFICADOR` es el UUID estable del equipo (app Android).
-      Cada dispositivo exige `ID_TIPO`.
-      `NOMBRE` puede ser `null` (dispositivo vacío tras enrollment);
-      el operador lo completa después en la web.
+      No hay alta manual: solo se crean con `POST /enrollment`.
+      La web lista, edita (`ID_TIPO`, `NOMBRE`, `ACTIVO`) y elimina.
+      `IDENTIFICADOR` lo fija el enrollment y no se modifica.
+      `NOMBRE` puede ser `null` hasta configurarlo en la web.
   - name: Tokens de autorización
     description: |
       Registro `AUTORIZACION_TOKENS`.
@@ -169,7 +174,8 @@ tags:
       y ese dispositivo debe estar activo.
       `ID_DISPOSITIVO` puede ser nulo hasta vincular el token (token libre);
       un token libre no autentica peticiones.
-      En la plataforma web el valor `TOKEN` se muestra como QR para enrollment.
+      En la plataforma web el QR de enrollment usa el payload `PTENR|<TOKEN>`
+      (prefijo estático; ver `PrefijosEscaneo`).
       `ULTIMO_USO_EN` lo escribe el servicio en cada uso autenticado.
   - name: Enrollment
     description: |
@@ -178,10 +184,12 @@ tags:
       Flujo:
       1. Un operador crea un `AUTORIZACION_TOKENS` libre (`ID_DISPOSITIVO` nulo,
          `ACTIVO` true) en la plataforma web.
-      2. La web muestra el valor `TOKEN` como código QR.
-      3. La app Android escanea el QR, obtiene el string `TOKEN` y llama
-         `POST /enrollment` **sin JWT** con `{ TOKEN, IDENTIFICADOR }`.
-         `IDENTIFICADOR` es el UUID estable del equipo.
+      2. La web muestra un QR cuyo payload es `PTENR|<TOKEN>`
+         (prefijo de escaneo `enrollment`, ver `PrefijosEscaneo`).
+      3. La app Android escanea el QR, reconoce el prefijo `PTENR|`, extrae el
+         token (sin prefijo) y llama `POST /enrollment` **sin JWT** con
+         `{ TOKEN, IDENTIFICADOR }`. `IDENTIFICADOR` es el UUID estable del equipo.
+         El cuerpo puede enviar el token con o sin prefijo; el servicio lo normaliza.
       4. El servicio valida que el token exista, esté activo, no haya expirado
          y esté libre (`ID_DISPOSITIVO` nulo).
       5. Si no hay `DISPOSITIVOS` con ese `IDENTIFICADOR`, crea uno vacío:
@@ -190,11 +198,16 @@ tags:
       6. Vincula el token al dispositivo (`ID_DISPOSITIVO`) y actualiza
          `ULTIMO_USO_EN`.
       7. El operador completa nombre y tipo del dispositivo en la web.
-      8. La app guarda el `TOKEN` y lo envía en peticiones posteriores como
-         `Authorization: Bearer <TOKEN>` (mismo esquema Bearer que el JWT web).
+      8. La app guarda el `TOKEN` (sin prefijo) y lo envía en peticiones
+         posteriores como `Authorization: Bearer <TOKEN>`.
 
-      El contenido del QR es exactamente el string `TOKEN` (no una URL).
       Reenviar el mismo par token+identificador ya vinculados es idempotente (`200`).
+  - name: Prefijos de escaneo
+    description: |
+      Contrato estático entre el API y la app Android.
+      No hay endpoint: los valores viven en `components.schemas.PrefijosEscaneo`.
+      Cada prefijo fija una `ACCION` que la app despacha al escanear.
+      Formato del payload escaneado: `{PREFIJO}{carga}` (sin separador extra).
 paths:
   /health:
     get:
@@ -2281,24 +2294,6 @@ paths:
                 $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
-    post:
-      tags: [Dispositivos]
-      operationId: createDispositivo
-      summary: Crea un dispositivo
-      requestBody:
-        $ref: '#/components/requestBodies/Dispositivo'
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaDispositivo'
-        '400':
-          $ref: '#/components/responses/ErrorDispositivo'
-        '409':
-          $ref: '#/components/responses/ConflictoDispositivo'
-        '500':
-          $ref: '#/components/responses/ErrorInterno'
   /dispositivos/{id}:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -2321,8 +2316,11 @@ paths:
     put:
       tags: [Dispositivos]
       operationId: updateDispositivo
-      summary: Reemplaza un dispositivo
-      description: Si `ACTIVO` no viene, se guarda `true`.
+      summary: Actualiza un dispositivo enrollado
+      description: |
+        Solo `ID_TIPO`, `NOMBRE` y `ACTIVO`.
+        `IDENTIFICADOR` no se envía ni se cambia (lo fijó el enrollment).
+        Si `ACTIVO` no viene, se guarda `true`.
       requestBody:
         $ref: '#/components/requestBodies/Dispositivo'
       responses:
@@ -2335,8 +2333,6 @@ paths:
           $ref: '#/components/responses/ErrorDispositivo'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '409':
-          $ref: '#/components/responses/ConflictoDispositivo'
         '500':
           $ref: '#/components/responses/ErrorInterno'
     delete:
@@ -2364,7 +2360,8 @@ paths:
         Endpoint **público** (sin Bearer). Pensado para la app Android.
 
         Cuerpo:
-        - `TOKEN`: valor leído del QR (mismo string que `AUTORIZACION_TOKENS.TOKEN`).
+        - `TOKEN`: valor de `AUTORIZACION_TOKENS.TOKEN`, con o sin prefijo
+          `PTENR|` (el servicio quita el prefijo de enrollment si viene).
         - `IDENTIFICADOR`: UUID estable del equipo en el dispositivo.
 
         Reglas:
@@ -2550,9 +2547,11 @@ paths:
       operationId: getAutorizacionTokenQr
       summary: Genera el QR de enrollment de un token
       description: |
-        Devuelve un `DATA_URL` PNG del QR cuyo contenido es el string `TOKEN`.
-        La app Android debe escanear ese valor y enviarlo en `POST /enrollment`.
-        Requiere JWT (uso de la plataforma web).
+        Devuelve un `DATA_URL` PNG cuyo payload es `PTENR|<TOKEN>`
+        (prefijo estático de enrollment, ver `PrefijosEscaneo`).
+        También incluye `PAYLOAD`, `PREFIJO`, `ACCION` y el `TOKEN` crudo.
+        La app Android reconoce `PTENR|`, extrae el token y llama
+        `POST /enrollment`. Requiere JWT (uso de la plataforma web).
       responses:
         '200':
           description: QR listo para mostrar en pantalla.
@@ -2957,13 +2956,15 @@ components:
             ACTIVO: true
     Dispositivo:
       required: true
+      description: |
+        Cuerpo de actualización. No crea dispositivos (solo `POST /enrollment`).
+        `IDENTIFICADOR`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/DispositivoEntrada'
           example:
             ID_TIPO: 1
-            IDENTIFICADOR: 550e8400-e29b-41d4-a716-446655440000
             NOMBRE: CK65 muelle 3
             ACTIVO: true
     AutorizacionToken:
@@ -3638,22 +3639,11 @@ components:
     ErrorDispositivo:
       description: |
         El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_tipo`,
-        `invalid_identificador`, `invalid_nombre`, `invalid_activo` o `invalid_dispositivo`.
+        `invalid_nombre`, `invalid_activo` o `invalid_dispositivo`.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/RespuestaError'
-    ConflictoDispositivo:
-      description: `duplicate_identificador` si el UUID del equipo ya existe.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RespuestaError'
-          example:
-            data: null
-            _metadata: {}
-            error:
-              error: duplicate_identificador
     ErrorAutorizacionToken:
       description: |
         El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_dispositivo`,
@@ -5356,14 +5346,11 @@ components:
           readOnly: true
     DispositivoEntrada:
       type: object
-      required: [ID_TIPO, IDENTIFICADOR]
+      required: [ID_TIPO]
       properties:
         ID_TIPO:
           type: integer
           minimum: 1
-        IDENTIFICADOR:
-          type: string
-          minLength: 1
         NOMBRE:
           type: string
           nullable: true
@@ -5372,7 +5359,55 @@ components:
         ACTIVO:
           type: boolean
           default: true
-      description: '`CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+      description: |
+        Solo actualización. El alta es exclusiva de `POST /enrollment`.
+        `IDENTIFICADOR`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    PrefijoEscaneoCodigo:
+      type: string
+      description: |
+        Prefijo literal al inicio del string escaneado.
+        Lista cerrada: solo los valores de este enum son válidos.
+      enum:
+        - PTENR|
+    PrefijoEscaneoAccion:
+      type: string
+      description: Acción que la app Android debe ejecutar al reconocer el prefijo.
+      enum:
+        - enrollment
+    PrefijoEscaneo:
+      type: object
+      required: [PREFIJO, ACCION, DESCRIPCION, FORMATO_PAYLOAD]
+      additionalProperties: false
+      properties:
+        PREFIJO:
+          $ref: '#/components/schemas/PrefijoEscaneoCodigo'
+        ACCION:
+          $ref: '#/components/schemas/PrefijoEscaneoAccion'
+        DESCRIPCION:
+          type: string
+        FORMATO_PAYLOAD:
+          type: string
+          description: Plantilla del contenido escaneado (`{PREFIJO}` + carga).
+      description: |
+        Entrada del catálogo estático de prefijos.
+        No se persiste en base de datos; API y Android deben coincidir.
+    PrefijosEscaneo:
+      type: array
+      description: |
+        Lista estática acordada API ↔ Android.
+        Embebida en la app; no se consulta al servidor.
+        Versión actual: solo enrollment.
+      minItems: 1
+      items:
+        $ref: '#/components/schemas/PrefijoEscaneo'
+      example:
+        - PREFIJO: PTENR|
+          ACCION: enrollment
+          DESCRIPCION: |
+            Enrollment de dispositivo. La carga tras el prefijo es
+            `AUTORIZACION_TOKENS.TOKEN`. La app llama `POST /enrollment`
+            con ese token (sin prefijo) y el `IDENTIFICADOR` del equipo.
+          FORMATO_PAYLOAD: PTENR|{TOKEN}
     EnrollmentEntrada:
       type: object
       required: [TOKEN, IDENTIFICADOR]
@@ -5380,7 +5415,9 @@ components:
         TOKEN:
           type: string
           minLength: 1
-          description: Valor del QR = `AUTORIZACION_TOKENS.TOKEN`.
+          description: |
+            `AUTORIZACION_TOKENS.TOKEN`, opcionalmente con prefijo `PTENR|`.
+            El servicio elimina el prefijo de enrollment si está presente.
         IDENTIFICADOR:
           type: string
           minLength: 1
@@ -5601,7 +5638,7 @@ components:
               $ref: '#/components/schemas/Enrollment'
     AutorizacionTokenQr:
       type: object
-      required: [ID, TOKEN, NOMBRE, DATA_URL]
+      required: [ID, TOKEN, NOMBRE, PREFIJO, ACCION, PAYLOAD, DATA_URL]
       properties:
         ID:
           type: integer
@@ -5609,12 +5646,22 @@ components:
         TOKEN:
           type: string
           minLength: 1
+          description: Valor crudo de `AUTORIZACION_TOKENS.TOKEN` (sin prefijo).
         NOMBRE:
           type: string
           minLength: 1
+        PREFIJO:
+          $ref: '#/components/schemas/PrefijoEscaneoCodigo'
+        ACCION:
+          $ref: '#/components/schemas/PrefijoEscaneoAccion'
+        PAYLOAD:
+          type: string
+          minLength: 1
+          description: Contenido del QR = `PTENR|{TOKEN}`.
+          example: PTENR|a1b2c3d4e5f6789012345678abcdef01
         DATA_URL:
           type: string
-          description: PNG en data URL (`data:image/png;base64,...`).
+          description: PNG en data URL del `PAYLOAD` (`data:image/png;base64,...`).
     RespuestaAutorizacionTokenQr:
       allOf:
         - $ref: '#/components/schemas/Sobre'

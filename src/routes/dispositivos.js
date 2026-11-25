@@ -29,14 +29,6 @@ function parseId(value) {
   return Number(value);
 }
 
-function requiredText(value, error) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw httpError(400, error);
-  }
-
-  return value.trim();
-}
-
 function optionalNombre(value) {
   if (value === undefined || value === null) {
     return null;
@@ -74,14 +66,13 @@ function parseActivo(value) {
   return value;
 }
 
-function parseBody(body) {
+function parseUpdateBody(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
   }
 
   return {
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
-    IDENTIFICADOR: requiredText(body.IDENTIFICADOR, 'invalid_identificador'),
     NOMBRE: optionalNombre(body.NOMBRE),
     ACTIVO: parseActivo(body.ACTIVO),
   };
@@ -102,13 +93,6 @@ function mapRow(row) {
 function translate(err) {
   if (err.publicError) {
     throw err;
-  }
-
-  if (err.code === '23505') {
-    if (err.constraint === 'DISPOSITIVOS_IDENTIFICADOR_key') {
-      throw httpError(409, 'duplicate_identificador');
-    }
-    throw httpError(409, 'duplicate_identificador');
   }
 
   if (err.code === '23503') {
@@ -195,34 +179,18 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
-  const record = parseBody(req.body);
-  try {
-    const result = await pool.query(
-      `INSERT INTO "${TABLE}" ("ID_TIPO", "IDENTIFICADOR", "NOMBRE", "ACTIVO")
-       VALUES ($1, $2, $3, $4)
-       RETURNING ${FIELDS}`,
-      [record.ID_TIPO, record.IDENTIFICADOR, record.NOMBRE, record.ACTIVO],
-    );
-    sendData(res, 201, mapRow(result.rows[0]));
-  } catch (err) {
-    translate(err);
-  }
-});
-
 router.put('/:id', async (req, res) => {
   const id = parseId(req.params.id);
-  const record = parseBody(req.body);
+  const record = parseUpdateBody(req.body);
   try {
     const result = await pool.query(
       `UPDATE "${TABLE}"
        SET "ID_TIPO" = $1,
-           "IDENTIFICADOR" = $2,
-           "NOMBRE" = $3,
-           "ACTIVO" = $4
-       WHERE "ID" = $5
+           "NOMBRE" = $2,
+           "ACTIVO" = $3
+       WHERE "ID" = $4
        RETURNING ${FIELDS}`,
-      [record.ID_TIPO, record.IDENTIFICADOR, record.NOMBRE, record.ACTIVO, id],
+      [record.ID_TIPO, record.NOMBRE, record.ACTIVO, id],
     );
     const row = result.rows[0];
     if (!row) {

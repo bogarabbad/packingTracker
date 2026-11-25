@@ -1,12 +1,25 @@
 # Enrollment de dispositivos
 
-Contrato canónico para la app Android: `openapi.yaml` → operación `enrollDispositivo` (`POST /enrollment`).
+Contrato canónico para la app Android: `openapi.yaml`
+→ operación `enrollDispositivo` (`POST /enrollment`)
+→ lista estática `PrefijosEscaneo`.
+
+## Prefijo de escaneo
+
+Lista cerrada (hoy un solo valor):
+
+| PREFIJO | ACCION | Payload del QR |
+|---------|--------|----------------|
+| `PTENR\|` | `enrollment` | `PTENR\|{TOKEN}` |
+
+La app reconoce el prefijo, ejecuta la acción y usa la carga (token sin prefijo).
+Más prefijos se agregarán después al mismo esquema OpenAPI.
 
 ## Resumen
 
 1. En la web se crea un token de autorización **libre** (`ID_DISPOSITIVO` nulo, `ACTIVO` true).
-2. La plataforma muestra el valor `TOKEN` como **QR** (el QR contiene solo ese string, no una URL).
-3. El dispositivo escanea el QR y llama `POST /enrollment` **sin JWT**.
+2. La plataforma muestra un **QR** con payload `PTENR|<TOKEN>`.
+3. El dispositivo escanea el QR, detecta `PTENR|` y llama `POST /enrollment` **sin JWT**.
 4. Si el token es válido y libre, el servidor crea el dispositivo vacío (si el `IDENTIFICADOR` no existe) y vincula el token.
 5. Un operador completa nombre y tipo del dispositivo en la web.
 
@@ -19,12 +32,12 @@ Content-Type: application/json
 
 ```json
 {
-  "TOKEN": "<string leído del QR>",
+  "TOKEN": "<AUTORIZACION_TOKENS.TOKEN, con o sin PTENR|>",
   "IDENTIFICADOR": "<UUID estable del equipo>"
 }
 ```
 
-No lleva header `Authorization`.
+No lleva header `Authorization`. El servicio quita `PTENR|` si viene en `TOKEN`.
 
 ## Respuesta exitosa
 
@@ -68,7 +81,7 @@ Un dispositivo nuevo nace con `NOMBRE: null` y `ID_TIPO` = semilla `DISPOSITIVOS
 | Código | HTTP | Significado |
 |--------|------|-------------|
 | `invalid_body` / `invalid_token` / `invalid_identificador` | 400 | Cuerpo mal formado |
-| `token_not_found` | 404 | El QR no existe en `AUTORIZACION_TOKENS` |
+| `token_not_found` | 404 | El QR no corresponde a un token |
 | `token_inactive` | 409 | Token con `ACTIVO = false` |
 | `token_expired` | 409 | `EXPIRA_EN` ≤ ahora |
 | `token_not_free` | 409 | Token ya ligado a otro dispositivo |
@@ -87,7 +100,7 @@ No se elimina; se puede actualizar.
 
 ## Uso del API tras el enrollment
 
-En cada petición autenticada la app envía el mismo token del QR:
+En cada petición autenticada la app envía el token **sin prefijo**:
 
 ```http
 Authorization: Bearer <TOKEN>

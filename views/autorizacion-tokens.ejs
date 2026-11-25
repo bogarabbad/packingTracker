@@ -141,9 +141,10 @@
       </header>
       <div class="mt-4 flex flex-col items-center gap-3">
         <img id="at-qr-image" alt="Código QR del token" class="size-64 rounded border border-border bg-white p-2" />
-        <p id="at-qr-token" class="max-w-full break-all font-mono text-xs text-muted-foreground"></p>
+        <p id="at-qr-payload" class="max-w-full break-all font-mono text-xs text-muted-foreground"></p>
         <p class="text-center text-xs text-muted-foreground">
-          El dispositivo escanea este QR y llama a <code>POST /enrollment</code>.
+          Prefijo <code>PTENR|</code> (acción enrollment). La app llama a
+          <code>POST /enrollment</code> con el token sin prefijo.
         </p>
       </div>
       <footer class="mt-4 flex justify-end">

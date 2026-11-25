@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     document.getElementById('at-qr-name').textContent = result.data.NOMBRE || '';
-    document.getElementById('at-qr-token').textContent = result.data.TOKEN || '';
+    document.getElementById('at-qr-payload').textContent = result.data.PAYLOAD || result.data.TOKEN || '';
     document.getElementById('at-qr-image').src = result.data.DATA_URL || '';
     qrDialog.showModal();
   }

@@ -10,6 +10,10 @@ const {
   parseOptionalQueryText,
   likeContains,
 } = require('../listFilters');
+const {
+  PREFIJOS_ESCANEO,
+  payloadEnrollment,
+} = require('../scanPrefixes');
 
 const TABLE = 'AUTORIZACION_TOKENS';
 const FIELDS = [
@@ -221,7 +225,8 @@ router.get('/:id/qr', async (req, res) => {
       throw httpError(404, 'not_found');
     }
 
-    const dataUrl = await QRCode.toDataURL(row.TOKEN, {
+    const payload = payloadEnrollment(row.TOKEN);
+    const dataUrl = await QRCode.toDataURL(payload, {
       errorCorrectionLevel: 'M',
       margin: 2,
       width: 280,
@@ -231,6 +236,9 @@ router.get('/:id/qr', async (req, res) => {
       ID: Number(row.ID),
       TOKEN: row.TOKEN,
       NOMBRE: row.NOMBRE,
+      PREFIJO: PREFIJOS_ESCANEO.ENROLLMENT.PREFIJO,
+      ACCION: PREFIJOS_ESCANEO.ENROLLMENT.ACCION,
+      PAYLOAD: payload,
       DATA_URL: dataUrl,
     });
   } catch (err) {

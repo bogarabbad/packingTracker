@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
+const { stripEnrollmentPrefix } = require('../scanPrefixes');
 
 const TIPO_PENDIENTE = 'pendiente';
 
@@ -41,7 +42,7 @@ function parseBody(body) {
   }
 
   return {
-    TOKEN: requiredText(body.TOKEN, 'invalid_token'),
+    TOKEN: stripEnrollmentPrefix(requiredText(body.TOKEN, 'invalid_token')),
     IDENTIFICADOR: requiredText(body.IDENTIFICADOR, 'invalid_identificador'),
   };
 }
