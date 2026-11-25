@@ -37,6 +37,23 @@ function requiredText(value, error) {
   return value.trim();
 }
 
+function optionalNombre(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw httpError(400, 'invalid_nombre');
+  }
+
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return null;
+  }
+
+  return trimmed;
+}
+
 function requiredInteger(value, error) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
     throw httpError(400, error);
@@ -65,7 +82,7 @@ function parseBody(body) {
   return {
     ID_TIPO: requiredInteger(body.ID_TIPO, 'invalid_id_tipo'),
     IDENTIFICADOR: requiredText(body.IDENTIFICADOR, 'invalid_identificador'),
-    NOMBRE: requiredText(body.NOMBRE, 'invalid_nombre'),
+    NOMBRE: optionalNombre(body.NOMBRE),
     ACTIVO: parseActivo(body.ACTIVO),
   };
 }

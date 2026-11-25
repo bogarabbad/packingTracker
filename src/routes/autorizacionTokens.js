@@ -1,4 +1,5 @@
 const express = require('express');
+const QRCode = require('qrcode');
 const { pool } = require('../db');
 const { httpError } = require('../httpError');
 const { sendData } = require('../respond');
@@ -203,6 +204,35 @@ router.get('/:id', async (req, res) => {
       throw httpError(404, 'not_found');
     }
     sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id/qr', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "${TABLE}" WHERE "ID" = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+
+    const dataUrl = await QRCode.toDataURL(row.TOKEN, {
+      errorCorrectionLevel: 'M',
+      margin: 2,
+      width: 280,
+    });
+
+    sendData(res, 200, {
+      ID: Number(row.ID),
+      TOKEN: row.TOKEN,
+      NOMBRE: row.NOMBRE,
+      DATA_URL: dataUrl,
+    });
   } catch (err) {
     translate(err);
   }

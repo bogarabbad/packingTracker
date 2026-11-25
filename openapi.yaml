@@ -18,7 +18,8 @@ info:
     el CRUD de `UBICACIONES_CATEGORIAS` y `UBICACIONES`,
     el CRUD de `LOTES_UBICACIONES_TIPOS` y `LOTES_UBICACIONES`,
     el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`,
-    y el CRUD de `DISPOSITIVOS_TIPOS`, `DISPOSITIVOS` y `AUTORIZACION_TOKENS`.
+    y el CRUD de `DISPOSITIVOS_TIPOS`, `DISPOSITIVOS` y `AUTORIZACION_TOKENS`,
+    más el enrollment público de dispositivos (`POST /enrollment`).
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
     `data` es un objeto o una lista cuando la petición tiene éxito, y `null` en un error o una eliminación.
@@ -32,8 +33,10 @@ info:
 
     Una ruta que no existe responde `404`. El código queda en `error.error` como `not_found` y la ruta en `error.path`.
 
-    Todas las rutas exigen un JWT Bearer, salvo `GET /health` y `POST /auth/login`.
+    Todas las rutas exigen un JWT Bearer, salvo `GET /health`, `POST /auth/login`
+    y `POST /enrollment`.
     El login autentica contra `USUARIOS` y firma un access token HS256.
+    El enrollment vincula un dispositivo Android a un token de autorización libre.
 security:
   - BearerAuth: []
 servers:
@@ -147,17 +150,43 @@ tags:
     description: |
       Catálogo `DISPOSITIVOS_TIPOS`.
       Clasifica equipos móviles por marca, modelo y sistema operativo.
+      Incluye la semilla `CODIGO = pendiente` para dispositivos recién enrollados.
   - name: Dispositivos
     description: |
       Registro `DISPOSITIVOS`.
       `IDENTIFICADOR` es el UUID estable del equipo (app Android).
       Cada dispositivo exige `ID_TIPO`.
+      `NOMBRE` puede ser `null` (dispositivo vacío tras enrollment);
+      el operador lo completa después en la web.
   - name: Tokens de autorización
     description: |
       Registro `AUTORIZACION_TOKENS`.
       Tokens de acceso al API sin login web.
-      `ID_DISPOSITIVO` puede ser nulo hasta vincular el token.
+      `ID_DISPOSITIVO` puede ser nulo hasta vincular el token (token libre).
+      En la plataforma web el valor `TOKEN` se muestra como QR para enrollment.
       `ULTIMO_USO_EN` lo escribe el servicio; el cliente no lo envía.
+  - name: Enrollment
+    description: |
+      Alta automática de un dispositivo Android al escanear un QR de token.
+
+      Flujo:
+      1. Un operador crea un `AUTORIZACION_TOKENS` libre (`ID_DISPOSITIVO` nulo,
+         `ACTIVO` true) en la plataforma web.
+      2. La web muestra el valor `TOKEN` como código QR.
+      3. La app Android escanea el QR, obtiene el string `TOKEN` y llama
+         `POST /enrollment` **sin JWT** con `{ TOKEN, IDENTIFICADOR }`.
+         `IDENTIFICADOR` es el UUID estable del equipo.
+      4. El servicio valida que el token exista, esté activo, no haya expirado
+         y esté libre (`ID_DISPOSITIVO` nulo).
+      5. Si no hay `DISPOSITIVOS` con ese `IDENTIFICADOR`, crea uno vacío:
+         `NOMBRE` null, `ID_TIPO` = semilla `DISPOSITIVOS_TIPOS.CODIGO = pendiente`,
+         `ACTIVO` true.
+      6. Vincula el token al dispositivo (`ID_DISPOSITIVO`) y actualiza
+         `ULTIMO_USO_EN`.
+      7. El operador completa nombre y tipo del dispositivo en la web.
+
+      El contenido del QR es exactamente el string `TOKEN` (no una URL).
+      Reenviar el mismo par token+identificador ya vinculados es idempotente (`200`).
 paths:
   /health:
     get:
@@ -2317,6 +2346,94 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /enrollment:
+    post:
+      tags: [Enrollment]
+      operationId: enrollDispositivo
+      summary: Enrollment de dispositivo por token QR
+      security: []
+      description: |
+        Endpoint **público** (sin Bearer). Pensado para la app Android.
+
+        Cuerpo:
+        - `TOKEN`: valor leído del QR (mismo string que `AUTORIZACION_TOKENS.TOKEN`).
+        - `IDENTIFICADOR`: UUID estable del equipo en el dispositivo.
+
+        Reglas:
+        - Token inexistente → `404` `token_not_found`.
+        - Token inactivo → `409` `token_inactive`.
+        - Token vencido (`EXPIRA_EN` ≤ ahora) → `409` `token_expired`.
+        - Token ya ligado a otro dispositivo → `409` `token_not_free`.
+        - Token ya ligado a este mismo dispositivo → `200` idempotente (`CREADO: false`).
+        - Dispositivo nuevo → `201` con `CREADO: true` y registro vacío
+          (`NOMBRE` null, tipo semilla `pendiente`).
+        - Dispositivo ya existente y token libre → `200` con vínculo (`CREADO: false`).
+        - Falta la semilla de tipo → `503` `seed_tipo_missing`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentEntrada'
+            example:
+              TOKEN: a1b2c3d4e5f6789012345678abcdef01
+              IDENTIFICADOR: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: |
+            Enrollment exitoso sin crear dispositivo nuevo, o reintento idempotente
+            del mismo par token+identificador ya vinculado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaEnrollment'
+        '201':
+          description: Dispositivo creado vacío y token vinculado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaEnrollment'
+        '400':
+          description: |
+            Cuerpo inválido. `error.error` puede ser `invalid_body`,
+            `invalid_token` o `invalid_identificador`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '404':
+          description: `token_not_found` si el QR no corresponde a un token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                data: null
+                _metadata: {}
+                error:
+                  error: token_not_found
+        '409':
+          description: |
+            El token no se puede usar. `error.error` puede ser
+            `token_inactive`, `token_expired`, `token_not_free`
+            o `duplicate_identificador`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                data: null
+                _metadata: {}
+                error:
+                  error: token_not_free
+        '503':
+          description: |
+            No está el tipo semilla `pendiente` en `DISPOSITIVOS_TIPOS`.
+            `error.error` = `seed_tipo_missing`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
   /autorizacion-tokens:
     get:
       tags: [Tokens de autorización]
@@ -2411,6 +2528,30 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /autorizacion-tokens/{id}/qr:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tokens de autorización]
+      operationId: getAutorizacionTokenQr
+      summary: Genera el QR de enrollment de un token
+      description: |
+        Devuelve un `DATA_URL` PNG del QR cuyo contenido es el string `TOKEN`.
+        La app Android debe escanear ese valor y enviarlo en `POST /enrollment`.
+        Requiere JWT (uso de la plataforma web).
+      responses:
+        '200':
+          description: QR listo para mostrar en pantalla.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaAutorizacionTokenQr'
         '400':
           $ref: '#/components/responses/IdInvalido'
         '404':
@@ -5176,14 +5317,20 @@ components:
         ID_TIPO:
           type: integer
           minimum: 1
-          description: Referencia a `DISPOSITIVOS_TIPOS`.
+          description: |
+            Referencia a `DISPOSITIVOS_TIPOS`.
+            Tras enrollment suele ser la semilla `CODIGO = pendiente`.
         IDENTIFICADOR:
           type: string
           minLength: 1
           description: UUID estable del equipo en la app Android.
         NOMBRE:
           type: string
+          nullable: true
           minLength: 1
+          description: |
+            Puede ser `null` en un dispositivo vacío (recién enrollado).
+            El operador lo completa en la web.
         ACTIVO:
           type: boolean
         CREADO_EN:
@@ -5196,7 +5343,7 @@ components:
           readOnly: true
     DispositivoEntrada:
       type: object
-      required: [ID_TIPO, IDENTIFICADOR, NOMBRE]
+      required: [ID_TIPO, IDENTIFICADOR]
       properties:
         ID_TIPO:
           type: integer
@@ -5206,11 +5353,36 @@ components:
           minLength: 1
         NOMBRE:
           type: string
+          nullable: true
           minLength: 1
+          description: Opcional. Vacío o omitido se guarda como `null`.
         ACTIVO:
           type: boolean
           default: true
       description: '`CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    EnrollmentEntrada:
+      type: object
+      required: [TOKEN, IDENTIFICADOR]
+      properties:
+        TOKEN:
+          type: string
+          minLength: 1
+          description: Valor del QR = `AUTORIZACION_TOKENS.TOKEN`.
+        IDENTIFICADOR:
+          type: string
+          minLength: 1
+          description: UUID estable del equipo Android.
+    Enrollment:
+      type: object
+      required: [DISPOSITIVO, TOKEN, CREADO]
+      properties:
+        DISPOSITIVO:
+          $ref: '#/components/schemas/Dispositivo'
+        TOKEN:
+          $ref: '#/components/schemas/AutorizacionToken'
+        CREADO:
+          type: boolean
+          description: `true` si se insertó un `DISPOSITIVOS` nuevo en esta petición.
     AutorizacionToken:
       type: object
       required:
@@ -5407,6 +5579,36 @@ components:
                 $ref: '#/components/schemas/Dispositivo'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaEnrollment:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Enrollment'
+    AutorizacionTokenQr:
+      type: object
+      required: [ID, TOKEN, NOMBRE, DATA_URL]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+        TOKEN:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        DATA_URL:
+          type: string
+          description: PNG en data URL (`data:image/png;base64,...`).
+    RespuestaAutorizacionTokenQr:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AutorizacionTokenQr'
     RespuestaAutorizacionToken:
       allOf:
         - $ref: '#/components/schemas/Sobre'

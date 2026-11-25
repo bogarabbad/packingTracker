@@ -5,6 +5,7 @@ const { sendError } = require('../respond');
 const PUBLIC_PATHS = new Set([
   '/health',
   '/auth/login',
+  '/enrollment',
   '/',
   '/login',
   '/dashboard',

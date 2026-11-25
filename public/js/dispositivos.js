@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     tbody.innerHTML = rows.map((row) => `
       <tr data-id="${row.ID}">
-        <td>${escapeHtml(row.NOMBRE)}</td>
+        <td>${row.NOMBRE ? escapeHtml(row.NOMBRE) : '<span class="text-muted-foreground">Sin nombre</span>'}</td>
         <td class="font-mono text-xs">${escapeHtml(row.IDENTIFICADOR)}</td>
         <td>${escapeHtml(tipoLabel(row.ID_TIPO))}</td>
         <td>
@@ -328,8 +328,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const nombre = document.getElementById('di-nombre').value.trim();
     const payload = {
-      NOMBRE: document.getElementById('di-nombre').value.trim(),
+      NOMBRE: nombre === '' ? null : nombre,
       IDENTIFICADOR: document.getElementById('di-identificador').value.trim(),
       ID_TIPO: idTipo,
       ACTIVO: document.getElementById('di-activo').checked,

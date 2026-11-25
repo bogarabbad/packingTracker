@@ -17,11 +17,13 @@ const lotesUbicaciones = require('./lotesUbicaciones');
 const dispositivosTipos = require('./dispositivosTipos');
 const dispositivos = require('./dispositivos');
 const autorizacionTokens = require('./autorizacionTokens');
+const enrollment = require('./enrollment');
 
 const router = express.Router();
 
 router.use(health);
 router.use('/auth', auth);
+router.use('/enrollment', enrollment);
 router.use('/unidades-estatus', createCatalogRouter('UNIDADES_ESTATUS'));
 router.use('/unidades-tipos', createCatalogRouter('UNIDADES_TIPOS'));
 router.use('/lotes-tipos', createCatalogRouter('LOTES_TIPOS'));

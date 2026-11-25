@@ -134,6 +134,23 @@
       </footer>
     </dialog>
 
+    <dialog id="at-qr-dialog" class="ui-dialog-panel" aria-labelledby="at-qr-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="at-qr-title" class="ui-dialog-title">QR de enrollment</h2>
+        <p class="ui-dialog-description" id="at-qr-name"></p>
+      </header>
+      <div class="mt-4 flex flex-col items-center gap-3">
+        <img id="at-qr-image" alt="Código QR del token" class="size-64 rounded border border-border bg-white p-2" />
+        <p id="at-qr-token" class="max-w-full break-all font-mono text-xs text-muted-foreground"></p>
+        <p class="text-center text-xs text-muted-foreground">
+          El dispositivo escanea este QR y llama a <code>POST /enrollment</code>.
+        </p>
+      </div>
+      <footer class="mt-4 flex justify-end">
+        <button type="button" id="at-qr-close" class="ui-btn ui-btn-outline ui-btn-md">Cerrar</button>
+      </footer>
+    </dialog>
+
     <%- include('partials/toast-viewport') %>
     <script src="/js/api.js" defer></script>
     <script src="/js/toast.js" defer></script>

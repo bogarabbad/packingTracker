@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const nextBtn = document.getElementById('at-next');
   const formDialog = document.getElementById('at-form-dialog');
   const deleteDialog = document.getElementById('at-delete-dialog');
+  const qrDialog = document.getElementById('at-qr-dialog');
   const form = document.getElementById('at-form');
   const formError = document.getElementById('at-form-error');
   const formTitle = document.getElementById('at-form-title');
@@ -194,13 +195,26 @@ document.addEventListener('DOMContentLoaded', async () => {
           </span>
         </td>
         <td class="text-right">
-          <div class="inline-flex gap-2">
+          <div class="inline-flex flex-wrap justify-end gap-2">
+            <button type="button" class="ui-btn ui-btn-outline ui-btn-sm" data-action="qr">QR</button>
             <button type="button" class="ui-btn ui-btn-outline ui-btn-sm" data-action="edit">Editar</button>
             <button type="button" class="ui-btn ui-btn-destructive ui-btn-sm" data-action="delete">Eliminar</button>
           </div>
         </td>
       </tr>
     `).join('');
+  }
+
+  async function openQr(id) {
+    const result = await window.PackingApi.request(`/autorizacion-tokens/${id}/qr`);
+    if (!result.ok) {
+      window.PackingToast.toast(mapError(result.error), 'error');
+      return;
+    }
+    document.getElementById('at-qr-name').textContent = result.data.NOMBRE || '';
+    document.getElementById('at-qr-token').textContent = result.data.TOKEN || '';
+    document.getElementById('at-qr-image').src = result.data.DATA_URL || '';
+    qrDialog.showModal();
   }
 
   function updatePager() {
@@ -294,6 +308,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  document.getElementById('at-qr-close').addEventListener('click', () => {
+    if (qrDialog.open) {
+      qrDialog.close();
+    }
+  });
+
   prevBtn.addEventListener('click', async () => {
     if (state.page <= 1) {
       return;
@@ -322,6 +342,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const id = Number(row.dataset.id);
     const action = button.dataset.action;
+
+    if (action === 'qr') {
+      await openQr(id);
+      return;
+    }
 
     if (action === 'edit') {
       const result = await window.PackingApi.request(`/autorizacion-tokens/${id}`);
