@@ -1,6 +1,7 @@
 const express = require('express');
 const health = require('./health');
 const auth = require('./auth');
+const usuarios = require('./usuarios');
 const { createCatalogRouter } = require('./catalog');
 const unidadesTransporte = require('./unidadesTransporte');
 const lotesTiposUnidades = require('./lotesTiposUnidades');
@@ -23,6 +24,7 @@ const router = express.Router();
 
 router.use(health);
 router.use('/auth', auth);
+router.use('/usuarios', usuarios);
 router.use('/enrollment', enrollment);
 router.use('/unidades-estatus', createCatalogRouter('UNIDADES_ESTATUS'));
 router.use('/unidades-tipos', createCatalogRouter('UNIDADES_TIPOS'));

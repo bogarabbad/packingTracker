@@ -26,7 +26,7 @@ router.post('/login', async (req, res) => {
   const contrasena = requiredText(body.CONTRASENA, 'invalid_contrasena');
 
   const result = await pool.query(
-    `SELECT "ID", "CODIGO", "NOMBRE", "CONTRASENA_HASH", "ACTIVO"
+    `SELECT "ID", "CODIGO", "NOMBRE", "CONTRASENA_HASH", "UBICACION_ID", "ACTIVO"
      FROM "USUARIOS"
      WHERE "CODIGO" = $1`,
     [codigo],
@@ -54,6 +54,10 @@ router.post('/login', async (req, res) => {
       ID: Number(user.ID),
       CODIGO: user.CODIGO,
       NOMBRE: user.NOMBRE,
+      UBICACION_ID:
+        user.UBICACION_ID === null || user.UBICACION_ID === undefined
+          ? null
+          : Number(user.UBICACION_ID),
     },
   });
 });

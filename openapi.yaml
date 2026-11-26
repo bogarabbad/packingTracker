@@ -19,6 +19,7 @@ info:
     el CRUD de `LOTES_UBICACIONES_TIPOS` y `LOTES_UBICACIONES`,
     el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`,
     y el CRUD de `DISPOSITIVOS_TIPOS`, `DISPOSITIVOS` y `AUTORIZACION_TOKENS`,
+    el CRUD de `USUARIOS` (con `UBICACION_ID` opcional como origen por defecto),
     más el enrollment público de dispositivos (`POST /enrollment`).
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
@@ -62,6 +63,14 @@ tags:
     description: |
       Emisión de JWT para usuarios internos de `USUARIOS`.
       El cuerpo usa `CODIGO` y `CONTRASENA`.
+  - name: Usuarios
+    description: |
+      Registro `USUARIOS`.
+      Cuentas internas autenticables.
+      `UBICACION_ID` es la ubicación origen por defecto del usuario.
+      Al crear un lote con `USUARIO_ID` interno (`ID_ORIGEN_USUARIO = 1`),
+      si el usuario tiene `UBICACION_ID` se crea `LOTES_UBICACIONES` tipo ORIGEN.
+      `CONTRASENA_HASH` no se expone. `ES_SEMILLA` lo asigna el servicio.
   - name: Estatus de unidades
     description: Catálogo `UNIDADES_ESTATUS`.
   - name: Tipos de unidades
@@ -107,6 +116,8 @@ tags:
       Solo la tarima puede apuntar a la unidad de transporte.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
+      En el alta, si el usuario es interno y tiene `UBICACION_ID`,
+      el servicio crea también la ubicación ORIGEN del lote.
   - name: Expediciones
     description: |
       Registro `EXPEDICIONES`.
@@ -332,6 +343,118 @@ paths:
                 _metadata: {}
                 error:
                   error: invalid_credentials
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      operationId: listUsuarios
+      summary: Lista los usuarios
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/UbicacionId'
+      responses:
+        '200':
+          description: Usuarios ordenados por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuarioLista'
+        '400':
+          description: Paginación, `q`, `activo` o `ubicacion_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Usuarios]
+      operationId: createUsuario
+      summary: Crea un usuario
+      requestBody:
+        $ref: '#/components/requestBodies/Usuario'
+      responses:
+        '201':
+          description: Usuario creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuario'
+        '400':
+          $ref: '#/components/responses/ErrorUsuario'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /usuarios/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Usuarios]
+      operationId: getUsuario
+      summary: Obtiene un usuario
+      responses:
+        '200':
+          description: Usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuario'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Usuarios]
+      operationId: updateUsuario
+      summary: Reemplaza un usuario
+      description: |
+        `CONTRASENA` omitida conserva el hash actual.
+        `UBICACION_ID` omitido o `null` deja al usuario sin ubicación por defecto.
+      requestBody:
+        $ref: '#/components/requestBodies/Usuario'
+      responses:
+        '200':
+          description: Usuario actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuario'
+        '400':
+          $ref: '#/components/responses/ErrorUsuario'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Usuarios]
+      operationId: deleteUsuario
+      summary: Elimina un usuario
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /unidades-estatus:
@@ -1040,6 +1163,11 @@ paths:
       tags: [Lotes]
       operationId: createLote
       summary: Crea un lote
+      description: |
+        Si `USUARIO_ID` e `ID_ORIGEN_USUARIO = 1` y ese usuario tiene `UBICACION_ID`,
+        el servicio inserta también `LOTES_UBICACIONES` con tipo ORIGEN (`ID_TIPO = 1`),
+        la misma `UBICACION_ID` y el mismo par de auditoría.
+        La respuesta sigue siendo solo el lote.
       requestBody:
         $ref: '#/components/requestBodies/Lote'
       responses:
@@ -2872,6 +3000,7 @@ components:
       description: |
         `PADRE_ID`, `ID_UNIDAD`, `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+        En el alta, un usuario interno con `UBICACION_ID` genera la ORIGEN del lote.
       content:
         application/json:
           schema:
@@ -2882,6 +3011,23 @@ components:
             ID_UNIDAD: null
             USUARIO_ID: null
             ID_ORIGEN_USUARIO: null
+    Usuario:
+      required: true
+      description: |
+        En el alta, `CONTRASENA` es obligatoria.
+        En el reemplazo, `CONTRASENA` omitida conserva el hash.
+        `UBICACION_ID` omitido o `null` queda sin ubicación por defecto.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UsuarioEntrada'
+          example:
+            CODIGO: op.uno
+            NOMBRE: Operador Uno
+            CONTRASENA: Secreta123!
+            UBICACION_ID: 1
+            ACTIVO: true
     Expedicion:
       required: true
       description: |
@@ -3713,6 +3859,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/RespuestaError'
+    ErrorUsuario:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_nombre`, `invalid_contrasena`, `invalid_ubicacion_id` o `invalid_activo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
     ErrorAutorizacionToken:
       description: |
         El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_dispositivo`,
@@ -3773,7 +3927,7 @@ components:
           description: Segundos de vigencia del token.
         usuario:
           type: object
-          required: [ID, CODIGO, NOMBRE]
+          required: [ID, CODIGO, NOMBRE, UBICACION_ID]
           properties:
             ID:
               type: integer
@@ -3782,6 +3936,11 @@ components:
               type: string
             NOMBRE:
               type: string
+            UBICACION_ID:
+              type: integer
+              nullable: true
+              minimum: 1
+              description: Ubicación origen por defecto del usuario, si la tiene.
     RespuestaLogin:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -4607,7 +4766,76 @@ components:
       description: |
         En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
+        En el alta con origen interno (`1`), si el usuario tiene `UBICACION_ID`
+        se crea la ORIGEN del lote en `LOTES_UBICACIONES`.
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+    Usuario:
+      type: object
+      required:
+        - ID
+        - CODIGO
+        - NOMBRE
+        - UBICACION_ID
+        - ACTIVO
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        UBICACION_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            Ubicación origen por defecto.
+            Se usa al crear un lote con este usuario interno.
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UsuarioEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        CONTRASENA:
+          type: string
+          minLength: 1
+          format: password
+          description: Obligatoria en el alta. En el reemplazo, omitida conserva el hash.
+        UBICACION_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: |
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+        No se acepta ni se devuelve `CONTRASENA_HASH`.
     LoteReferencia:
       type: object
       required:
@@ -5742,6 +5970,24 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Dispositivo'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaUsuario:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Usuario'
+    RespuestaUsuarioLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Usuario'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaEnrollment:

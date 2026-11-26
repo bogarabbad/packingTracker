@@ -1,0 +1,317 @@
+const express = require('express');
+const { pool } = require('../db');
+const { httpError } = require('../httpError');
+const { sendData } = require('../respond');
+const { paginationFromQuery, paginationMetadata } = require('../pagination');
+const {
+  parseOptionalBoolean,
+  parseOptionalPositiveInt,
+  parseOptionalQueryText,
+  likeContains,
+} = require('../listFilters');
+const { hashPassword } = require('../auth/password');
+
+const TABLE = 'USUARIOS';
+const FIELDS = [
+  'ID',
+  'CODIGO',
+  'NOMBRE',
+  'UBICACION_ID',
+  'ACTIVO',
+  'ES_SEMILLA',
+  'CREADO_EN',
+  'ACTUALIZADO_EN',
+].map((name) => `"${name}"`).join(', ');
+
+function parseId(value) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw httpError(400, 'invalid_id');
+  }
+
+  return Number(value);
+}
+
+function requiredText(value, error) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw httpError(400, error);
+  }
+
+  return value.trim();
+}
+
+function requiredPassword(value) {
+  if (typeof value !== 'string' || value === '') {
+    throw httpError(400, 'invalid_contrasena');
+  }
+
+  return value;
+}
+
+function optionalPassword(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return requiredPassword(value);
+}
+
+function optionalInteger(value, error) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw httpError(400, error);
+  }
+
+  return value;
+}
+
+function parseActivo(value) {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw httpError(400, 'invalid_activo');
+  }
+
+  return value;
+}
+
+function parseCreateBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw httpError(400, 'invalid_body');
+  }
+
+  return {
+    CODIGO: requiredText(body.CODIGO, 'invalid_codigo'),
+    NOMBRE: requiredText(body.NOMBRE, 'invalid_nombre'),
+    CONTRASENA: requiredPassword(body.CONTRASENA),
+    UBICACION_ID: optionalInteger(body.UBICACION_ID, 'invalid_ubicacion_id'),
+    ACTIVO: parseActivo(body.ACTIVO),
+  };
+}
+
+function parseUpdateBody(body) {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw httpError(400, 'invalid_body');
+  }
+
+  return {
+    CODIGO: requiredText(body.CODIGO, 'invalid_codigo'),
+    NOMBRE: requiredText(body.NOMBRE, 'invalid_nombre'),
+    CONTRASENA: optionalPassword(body.CONTRASENA),
+    UBICACION_ID: optionalInteger(body.UBICACION_ID, 'invalid_ubicacion_id'),
+    ACTIVO: parseActivo(body.ACTIVO),
+  };
+}
+
+function mapNumber(value) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
+function mapRow(row) {
+  return {
+    ID: Number(row.ID),
+    CODIGO: row.CODIGO,
+    NOMBRE: row.NOMBRE,
+    UBICACION_ID: mapNumber(row.UBICACION_ID),
+    ACTIVO: row.ACTIVO,
+    ES_SEMILLA: row.ES_SEMILLA,
+    CREADO_EN: row.CREADO_EN,
+    ACTUALIZADO_EN: row.ACTUALIZADO_EN,
+  };
+}
+
+function translate(err) {
+  if (err.publicError) {
+    throw err;
+  }
+
+  if (err.code === '23505') {
+    throw httpError(409, 'duplicate_codigo');
+  }
+
+  if (err.code === '23503') {
+    if (err.constraint === 'USUARIOS_UBICACION_ID_FK') {
+      throw httpError(400, 'invalid_ubicacion_id');
+    }
+    throw httpError(409, 'record_in_use');
+  }
+
+  throw err;
+}
+
+const router = express.Router();
+
+router.get('/', async (req, res) => {
+  try {
+    const page = paginationFromQuery(req.query);
+    const filters = [];
+    const params = [];
+
+    const q = parseOptionalQueryText(req.query.q, 'invalid_q');
+    if (q !== null) {
+      params.push(likeContains(q));
+      filters.push(
+        `("CODIGO" ILIKE $${params.length} ESCAPE '\\' OR "NOMBRE" ILIKE $${params.length} ESCAPE '\\')`,
+      );
+    }
+
+    const activo = parseOptionalBoolean(req.query.activo, 'invalid_activo');
+    if (activo !== null) {
+      params.push(activo);
+      filters.push(`"ACTIVO" = $${params.length}`);
+    }
+
+    const ubicacionId = parseOptionalPositiveInt(
+      req.query.ubicacion_id,
+      'invalid_ubicacion_id',
+    );
+    if (ubicacionId !== null) {
+      params.push(ubicacionId);
+      filters.push(`"UBICACION_ID" = $${params.length}`);
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const totalResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM "${TABLE}" ${where}`,
+      params,
+    );
+    const listParams = [...params, page.items, page.offset];
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "${TABLE}"
+       ${where}
+       ORDER BY "CREADO_EN" DESC, "ID" DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      listParams,
+    );
+    sendData(
+      res,
+      200,
+      result.rows.map(mapRow),
+      paginationMetadata(page.page, page.items, totalResult.rows[0].total),
+    );
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "${TABLE}" WHERE "ID" = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.post('/', async (req, res) => {
+  const record = parseCreateBody(req.body);
+  try {
+    const contrasenaHash = await hashPassword(record.CONTRASENA);
+    const result = await pool.query(
+      `INSERT INTO "${TABLE}" (
+         "CODIGO", "NOMBRE", "CONTRASENA_HASH", "UBICACION_ID", "ACTIVO"
+       )
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING ${FIELDS}`,
+      [
+        record.CODIGO,
+        record.NOMBRE,
+        contrasenaHash,
+        record.UBICACION_ID,
+        record.ACTIVO,
+      ],
+    );
+    sendData(res, 201, mapRow(result.rows[0]));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  const record = parseUpdateBody(req.body);
+  try {
+    let result;
+    if (record.CONTRASENA !== null) {
+      const contrasenaHash = await hashPassword(record.CONTRASENA);
+      result = await pool.query(
+        `UPDATE "${TABLE}"
+         SET "CODIGO" = $1,
+             "NOMBRE" = $2,
+             "CONTRASENA_HASH" = $3,
+             "UBICACION_ID" = $4,
+             "ACTIVO" = $5
+         WHERE "ID" = $6
+         RETURNING ${FIELDS}`,
+        [
+          record.CODIGO,
+          record.NOMBRE,
+          contrasenaHash,
+          record.UBICACION_ID,
+          record.ACTIVO,
+          id,
+        ],
+      );
+    } else {
+      result = await pool.query(
+        `UPDATE "${TABLE}"
+         SET "CODIGO" = $1,
+             "NOMBRE" = $2,
+             "UBICACION_ID" = $3,
+             "ACTIVO" = $4
+         WHERE "ID" = $5
+         RETURNING ${FIELDS}`,
+        [
+          record.CODIGO,
+          record.NOMBRE,
+          record.UBICACION_ID,
+          record.ACTIVO,
+          id,
+        ],
+      );
+    }
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const existing = await pool.query(
+      `SELECT "ES_SEMILLA" FROM "${TABLE}" WHERE "ID" = $1`,
+      [id],
+    );
+    const row = existing.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    if (row.ES_SEMILLA) {
+      throw httpError(409, 'seed_not_deletable');
+    }
+
+    await pool.query(`DELETE FROM "${TABLE}" WHERE "ID" = $1`, [id]);
+    sendData(res, 200, null);
+  } catch (err) {
+    translate(err);
+  }
+});
+
+module.exports = router;
