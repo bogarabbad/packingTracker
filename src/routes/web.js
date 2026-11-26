@@ -58,6 +58,10 @@ router.get('/catalogos/autorizacion-tokens', (req, res) => {
   res.render('autorizacion-tokens');
 });
 
+router.get('/catalogos/usuarios', (req, res) => {
+  res.render('usuarios');
+});
+
 router.get('/operacion/lotes', (req, res) => {
   res.render('lotes');
 });

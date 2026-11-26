@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Usuarios · packingTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <div class="ui-app">
+      <%- include('partials/sidebar', { active: 'usuarios' }) %>
+      <div class="ui-app-main">
+        <%- include('partials/topbar', { title: 'Usuarios' }) %>
+        <main class="ui-page">
+          <section class="flex flex-wrap items-center justify-between gap-3">
+            <p id="us-status" class="text-sm text-muted-foreground">Cargando…</p>
+            <%- include('partials/button', {
+              label: 'Nuevo usuario',
+              variant: 'default',
+              size: 'md',
+              id: 'us-btn-new'
+            }) %>
+          </section>
+
+          <form id="us-filters" class="ui-filters">
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="us-filter-q">Buscar</label>
+              <input class="ui-input" id="us-filter-q" name="q" placeholder="Código o nombre" autocomplete="off" />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="us-filter-ubicacion">Ubicación</label>
+              <select class="ui-input" id="us-filter-ubicacion" name="ubicacion_id">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="ui-label" for="us-filter-activo">Activo</label>
+              <select class="ui-input" id="us-filter-activo" name="activo">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+              </select>
+            </div>
+            <div class="ui-filters-actions">
+              <button type="submit" class="ui-btn ui-btn-default ui-btn-md">Filtrar</button>
+              <button type="button" id="us-filters-clear" class="ui-btn ui-btn-outline ui-btn-md">Limpiar</button>
+            </div>
+          </form>
+
+          <%- include('partials/card', {
+            body: `
+              <div class="ui-table-wrap">
+                <table class="ui-table" aria-label="Usuarios">
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Nombre</th>
+                      <th scope="col">Ubicación</th>
+                      <th scope="col">Activo</th>
+                      <th scope="col" class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="us-tbody">
+                    <tr>
+                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p id="us-page-label" class="text-sm text-muted-foreground"></p>
+                <div class="flex gap-2">
+                  <button type="button" id="us-prev" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Anterior</button>
+                  <button type="button" id="us-next" class="ui-btn ui-btn-outline ui-btn-sm" disabled>Siguiente</button>
+                </div>
+              </div>
+            `
+          }) %>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="us-form-dialog" class="ui-dialog-panel" aria-labelledby="us-form-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="us-form-title" class="ui-dialog-title">Nuevo usuario</h2>
+      </header>
+      <form id="us-form" class="mt-4 grid gap-4">
+        <input type="hidden" id="us-id" value="" />
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="us-codigo">Código</label>
+          <input class="ui-input" id="us-codigo" name="CODIGO" required autocomplete="username" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="us-nombre">Nombre</label>
+          <input class="ui-input" id="us-nombre" name="NOMBRE" required autocomplete="name" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="us-contrasena">Contraseña</label>
+          <input class="ui-input" id="us-contrasena" name="CONTRASENA" type="password" autocomplete="new-password" />
+          <p id="us-contrasena-hint" class="text-xs text-muted-foreground">
+            Obligatoria al crear. En edición, déjala vacía para no cambiarla.
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="ui-label" for="us-ubicacion">Ubicación por defecto</label>
+          <select class="ui-input" id="us-ubicacion" name="UBICACION_ID">
+            <option value="">Sin ubicación</option>
+          </select>
+          <p class="text-xs text-muted-foreground">
+            Se usa como origen al crear un lote con este usuario.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="us-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="us-activo">Activo</label>
+        </div>
+        <p id="us-form-error" class="hidden text-sm text-destructive" role="alert"></p>
+        <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" id="us-form-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+          <button type="submit" id="us-form-submit" class="ui-btn ui-btn-default ui-btn-md">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="us-delete-dialog" class="ui-dialog-panel" aria-labelledby="us-delete-title">
+      <header class="flex flex-col gap-2 text-left">
+        <h2 id="us-delete-title" class="ui-dialog-title">Eliminar usuario</h2>
+        <p class="ui-dialog-description" id="us-delete-text">¿Eliminar este usuario?</p>
+      </header>
+      <footer class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" id="us-delete-cancel" class="ui-btn ui-btn-outline ui-btn-md">Cancelar</button>
+        <button type="button" id="us-delete-confirm" class="ui-btn ui-btn-destructive ui-btn-md">Eliminar</button>
+      </footer>
+    </dialog>
+
+    <%- include('partials/toast-viewport') %>
+    <script src="/js/api.js" defer></script>
+    <script src="/js/toast.js" defer></script>
+    <script src="/js/app-shell.js" defer></script>
+    <script src="/js/usuarios.js" defer></script>
+  </body>
+</html>

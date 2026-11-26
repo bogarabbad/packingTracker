@@ -1,5 +1,5 @@
 <%#
-  active: 'dashboard' | 'lotes' | 'expediciones' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos' | 'ubicaciones' | 'ubicaciones-categorias' | 'dispositivos' | 'dispositivos-tipos' | 'autorizacion-tokens'
+  active: 'dashboard' | 'lotes' | 'expediciones' | 'usuarios' | 'unidades-transporte' | 'unidades-tipos' | 'unidades-estatus' | 'unidades-medida' | 'lotes-tipos' | 'referencias-tipos' | 'ubicaciones' | 'ubicaciones-categorias' | 'dispositivos' | 'dispositivos-tipos' | 'autorizacion-tokens'
 %>
 <%
   const active = locals.active || '';
@@ -20,6 +20,9 @@
     <a href="/dashboard" class="<%= navClass('dashboard') %>">Panel</a>
     <a href="/operacion/lotes" class="<%= navClass('lotes') %>">Lotes</a>
     <a href="/operacion/expediciones" class="<%= navClass('expediciones') %>">Expediciones</a>
+
+    <p class="ui-sidebar-section">Acceso</p>
+    <a href="/catalogos/usuarios" class="<%= navClass('usuarios') %>">Usuarios</a>
 
     <p class="ui-sidebar-section">Unidades de transporte</p>
     <a href="/catalogos/unidades-transporte" class="<%= navClass('unidades-transporte') %>">

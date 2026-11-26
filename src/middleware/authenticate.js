@@ -21,6 +21,7 @@ const PUBLIC_PATHS = new Set([
   '/catalogos/dispositivos',
   '/catalogos/dispositivos-tipos',
   '/catalogos/autorizacion-tokens',
+  '/catalogos/usuarios',
   '/operacion/lotes',
   '/operacion/expediciones',
 ]);
