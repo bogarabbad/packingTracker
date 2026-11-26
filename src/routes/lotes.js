@@ -305,6 +305,41 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const id = parseId(req.params.id);
   try {
+    const existing = await pool.query(
+      'SELECT 1 FROM "LOTES" WHERE "ID" = $1',
+      [id],
+    );
+    if (!existing.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+
+    const deps = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM "LOTES_PRODUCTOS" WHERE "ID_LOTE" = $1) AS productos,
+         (SELECT COUNT(*)::int FROM "LOTES_REFERENCIAS" WHERE "ID_LOTE" = $1) AS referencias,
+         (SELECT COUNT(*)::int FROM "LOTES" WHERE "PADRE_ID" = $1) AS hijos,
+         (SELECT COUNT(*)::int FROM "LOTES_UBICACIONES" WHERE "ID_LOTE" = $1) AS ubicaciones,
+         (SELECT COUNT(*)::int FROM "EXPEDICIONES_LOTES" WHERE "ID_LOTE" = $1) AS expediciones,
+         (SELECT COUNT(*)::int FROM "RECEPCIONES_LOTES" WHERE "ID_LOTE" = $1) AS recepciones`,
+      [id],
+    );
+    const counts = deps.rows[0];
+    if (Number(counts.productos) > 0) {
+      throw httpError(409, 'lote_has_productos');
+    }
+    if (Number(counts.referencias) > 0) {
+      throw httpError(409, 'lote_has_referencias');
+    }
+    if (Number(counts.hijos) > 0) {
+      throw httpError(409, 'lote_has_hijos');
+    }
+    if (Number(counts.ubicaciones) > 0) {
+      throw httpError(409, 'lote_has_ubicaciones');
+    }
+    if (Number(counts.expediciones) > 0 || Number(counts.recepciones) > 0) {
+      throw httpError(409, 'record_in_use');
+    }
+
     const result = await pool.query(
       `DELETE FROM "LOTES" WHERE "ID" = $1 RETURNING "ID"`,
       [id],

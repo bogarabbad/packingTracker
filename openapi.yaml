@@ -1103,8 +1103,10 @@ paths:
       operationId: deleteLote
       summary: Elimina un lote
       description: |
-        También elimina los productos y las referencias de ese lote.
-        Responde `409` si otro lote lo tiene como padre o si está embarcado en una expedición.
+        Solo elimina un lote sin productos, referencias, lotes hijo ni ubicaciones.
+        Responde `409` si tiene productos (`lote_has_productos`), referencias
+        (`lote_has_referencias`), hijos (`lote_has_hijos`), ubicaciones
+        (`lote_has_ubicaciones`), o si está embarcado/recibido (`record_in_use`).
       responses:
         '200':
           $ref: '#/components/responses/Eliminado'
@@ -3389,16 +3391,34 @@ components:
                 error:
                   error: invalid_usuario_id
     LoteEnUso:
-      description: Otro lote lo tiene como padre o el lote está embarcado en una expedición.
+      description: |
+        El lote no se puede eliminar porque tiene dependencias.
+        `error.error` puede ser `lote_has_productos`, `lote_has_referencias`,
+        `lote_has_hijos`, `lote_has_ubicaciones` o `record_in_use`
+        (embarcado o recibido).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/RespuestaError'
-          example:
-            data: null
-            _metadata: {}
-            error:
-              error: record_in_use
+          examples:
+            productos:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: lote_has_productos
+            hijos:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: lote_has_hijos
+            en_uso:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: record_in_use
     ErrorExpedicion:
       description: |
         El cuerpo no cumple las reglas de la expedición.
