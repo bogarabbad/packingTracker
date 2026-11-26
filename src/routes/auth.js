@@ -58,4 +58,30 @@ router.post('/login', async (req, res) => {
   });
 });
 
+/**
+ * Sesión del dispositivo enrollado.
+ * Autentica solo con Bearer = AUTORIZACION_TOKENS.TOKEN
+ * (incluso si REQUIERE_AUTH = true).
+ */
+router.get('/session', async (req, res) => {
+  const auth = req.auth;
+  if (!auth || auth.kind !== 'dispositivo') {
+    throw httpError(401, 'unauthorized');
+  }
+
+  sendData(res, 200, {
+    REQUIERE_AUTH: Boolean(auth.requiereAuth),
+    DISPOSITIVO: {
+      ID: auth.dispositivoId,
+      IDENTIFICADOR: auth.identificador,
+      NOMBRE: auth.dispositivoNombre,
+    },
+    TOKEN: {
+      ID: auth.tokenId,
+      NOMBRE: auth.tokenNombre,
+      REQUIERE_AUTH: Boolean(auth.requiereAuth),
+    },
+  });
+});
+
 module.exports = router;

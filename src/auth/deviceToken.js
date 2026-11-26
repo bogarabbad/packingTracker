@@ -7,9 +7,12 @@ async function resolveDeviceToken(rawToken) {
        t."ID" AS "TOKEN_ID",
        t."ID_DISPOSITIVO",
        t."ACTIVO" AS "TOKEN_ACTIVO",
+       t."REQUIERE_AUTH",
+       t."NOMBRE" AS "TOKEN_NOMBRE",
        t."EXPIRA_EN",
        d."ID" AS "DISPOSITIVO_ID",
        d."IDENTIFICADOR",
+       d."NOMBRE" AS "DISPOSITIVO_NOMBRE",
        d."ACTIVO" AS "DISPOSITIVO_ACTIVO"
      FROM "AUTORIZACION_TOKENS" t
      LEFT JOIN "DISPOSITIVOS" d ON d."ID" = t."ID_DISPOSITIVO"
@@ -53,6 +56,9 @@ async function resolveDeviceToken(rawToken) {
     tokenId: Number(row.TOKEN_ID),
     dispositivoId: Number(row.DISPOSITIVO_ID),
     identificador: row.IDENTIFICADOR,
+    requiereAuth: Boolean(row.REQUIERE_AUTH),
+    tokenNombre: row.TOKEN_NOMBRE,
+    dispositivoNombre: row.DISPOSITIVO_NOMBRE,
   };
 }
 

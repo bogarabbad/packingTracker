@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_dispositivo: 'Dispositivo inválido.',
       invalid_expira_en: 'Fecha de expiración inválida.',
       invalid_activo: 'Estado activo inválido.',
+      invalid_requiere_auth: 'Requiere autenticación inválido.',
       invalid_autorizacion_token: 'Datos del token inválidos.',
       record_in_use: 'El token está en uso y no se puede eliminar.',
       not_found: 'Registro no encontrado.',
@@ -153,6 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFormError('');
     form.reset();
     document.getElementById('at-activo').checked = true;
+    document.getElementById('at-requiere-auth').checked = true;
     document.getElementById('at-id').value = row ? String(row.ID) : '';
     formTitle.textContent = row ? 'Editar token' : 'Nuevo token';
     fillDispositivoOptions(dispositivoSelect, 'Sin dispositivo');
@@ -163,6 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       dispositivoSelect.value = row.ID_DISPOSITIVO == null ? '' : String(row.ID_DISPOSITIVO);
       document.getElementById('at-expira-en').value = toDatetimeLocal(row.EXPIRA_EN);
       document.getElementById('at-activo').checked = Boolean(row.ACTIVO);
+      document.getElementById('at-requiere-auth').checked = row.REQUIERE_AUTH !== false;
     } else {
       document.getElementById('at-token').value = generateToken();
     }
@@ -178,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRows(rows) {
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-muted-foreground">Sin registros.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-muted-foreground">Sin registros.</td></tr>';
       return;
     }
 
@@ -192,6 +195,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>
           <span class="ui-badge ${row.ACTIVO ? 'ui-badge-secondary' : 'ui-badge-outline'}">
             ${row.ACTIVO ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td>
+          <span class="ui-badge ${row.REQUIERE_AUTH !== false ? 'ui-badge-secondary' : 'ui-badge-outline'}">
+            ${row.REQUIERE_AUTH !== false ? 'Sí' : 'No'}
           </span>
         </td>
         <td class="text-right">
@@ -254,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await window.PackingApi.request(buildListUrl());
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
-      tbody.innerHTML = '<tr><td colspan="7" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
       window.PackingToast.toast(mapError(result.error), 'error');
       if (result.status === 401) {
         window.location.replace('/login');
@@ -406,6 +414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ID_DISPOSITIVO: dispositivoValue === '' ? null : Number(dispositivoValue),
       EXPIRA_EN: expiraEn,
       ACTIVO: document.getElementById('at-activo').checked,
+      REQUIERE_AUTH: document.getElementById('at-requiere-auth').checked,
     };
     const submit = document.getElementById('at-form-submit');
     submit.disabled = true;

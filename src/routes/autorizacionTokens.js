@@ -22,6 +22,7 @@ const FIELDS = [
   'TOKEN',
   'NOMBRE',
   'ACTIVO',
+  'REQUIERE_AUTH',
   'EXPIRA_EN',
   'ULTIMO_USO_EN',
   'CREADO_EN',
@@ -85,6 +86,18 @@ function parseActivo(value) {
   return value;
 }
 
+function parseRequiereAuth(value) {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw httpError(400, 'invalid_requiere_auth');
+  }
+
+  return value;
+}
+
 function parseBody(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
@@ -95,6 +108,7 @@ function parseBody(body) {
     TOKEN: requiredText(body.TOKEN, 'invalid_token'),
     NOMBRE: requiredText(body.NOMBRE, 'invalid_nombre'),
     ACTIVO: parseActivo(body.ACTIVO),
+    REQUIERE_AUTH: parseRequiereAuth(body.REQUIERE_AUTH),
     EXPIRA_EN: optionalTimestamptz(body.EXPIRA_EN, 'invalid_expira_en'),
   };
 }
@@ -110,6 +124,7 @@ function mapRow(row) {
     TOKEN: row.TOKEN,
     NOMBRE: row.NOMBRE,
     ACTIVO: row.ACTIVO,
+    REQUIERE_AUTH: row.REQUIERE_AUTH,
     EXPIRA_EN: row.EXPIRA_EN,
     ULTIMO_USO_EN: row.ULTIMO_USO_EN,
     CREADO_EN: row.CREADO_EN,
@@ -251,15 +266,16 @@ router.post('/', async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO "${TABLE}" (
-         "ID_DISPOSITIVO", "TOKEN", "NOMBRE", "ACTIVO", "EXPIRA_EN"
+         "ID_DISPOSITIVO", "TOKEN", "NOMBRE", "ACTIVO", "REQUIERE_AUTH", "EXPIRA_EN"
        )
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${FIELDS}`,
       [
         record.ID_DISPOSITIVO,
         record.TOKEN,
         record.NOMBRE,
         record.ACTIVO,
+        record.REQUIERE_AUTH,
         record.EXPIRA_EN,
       ],
     );
@@ -279,14 +295,16 @@ router.put('/:id', async (req, res) => {
            "TOKEN" = $2,
            "NOMBRE" = $3,
            "ACTIVO" = $4,
-           "EXPIRA_EN" = $5
-       WHERE "ID" = $6
+           "REQUIERE_AUTH" = $5,
+           "EXPIRA_EN" = $6
+       WHERE "ID" = $7
        RETURNING ${FIELDS}`,
       [
         record.ID_DISPOSITIVO,
         record.TOKEN,
         record.NOMBRE,
         record.ACTIVO,
+        record.REQUIERE_AUTH,
         record.EXPIRA_EN,
         id,
       ],

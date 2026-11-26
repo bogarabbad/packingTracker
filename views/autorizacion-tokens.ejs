@@ -59,12 +59,13 @@
                       <th scope="col">Expira</th>
                       <th scope="col">Último uso</th>
                       <th scope="col">Activo</th>
+                      <th scope="col">Requiere auth</th>
                       <th scope="col" class="text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="at-tbody">
                     <tr>
-                      <td colspan="7" class="text-muted-foreground">Sin registros.</td>
+                      <td colspan="8" class="text-muted-foreground">Sin registros.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -114,6 +115,10 @@
         <div class="flex items-center gap-2">
           <input id="at-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
           <label class="ui-label" for="at-activo">Activo</label>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="at-requiere-auth" name="REQUIERE_AUTH" type="checkbox" checked class="size-4 rounded border-input" />
+          <label class="ui-label" for="at-requiere-auth">Requiere autenticación de usuario</label>
         </div>
         <p id="at-form-error" class="hidden text-sm text-destructive" role="alert"></p>
         <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

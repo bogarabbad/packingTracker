@@ -172,6 +172,7 @@ CREATE TABLE "AUTORIZACION_TOKENS" (
   "TOKEN" text NOT NULL UNIQUE,
   "NOMBRE" text NOT NULL,
   "ACTIVO" boolean NOT NULL DEFAULT true,
+  "REQUIERE_AUTH" boolean NOT NULL DEFAULT true,
   "EXPIRA_EN" timestamptz,
   "ULTIMO_USO_EN" timestamptz,
   "CREADO_EN" timestamptz NOT NULL DEFAULT now(),

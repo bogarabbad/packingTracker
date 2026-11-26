@@ -36,9 +36,13 @@ info:
     Todas las rutas exigen Bearer, salvo `GET /health`, `POST /auth/login`
     y `POST /enrollment`.
     El login autentica contra `USUARIOS` y firma un access token JWT HS256.
-    Un dispositivo enrollado autentica con `Authorization: Bearer <TOKEN>`
-    usando el valor de `AUTORIZACION_TOKENS` (el mismo del QR).
-    El enrollment vincula un dispositivo Android a un token de autorización libre.
+    Un dispositivo enrollado autentica con el valor de `AUTORIZACION_TOKENS`
+    (el mismo del QR). Si `REQUIERE_AUTH` es false, basta
+    `Authorization: Bearer <TOKEN>`. Si es true (default), la app debe
+    iniciar sesión de `USUARIOS` y enviar `Authorization: Bearer <JWT>` más
+    `X-Device-Token: <TOKEN>`. `GET /auth/session` acepta solo el token de
+    equipo para consultar ese flag. El enrollment vincula el dispositivo a
+    un token libre.
 
     Prefijos de escaneo (lista estática, ver `PrefijosEscaneo`): la app Android
     interpreta el inicio del string escaneado y despacha una acción. Hoy solo
@@ -250,6 +254,33 @@ paths:
                       status: error
                 _metadata: {}
                 error: null
+  /auth/session:
+    get:
+      tags: [Autenticación]
+      operationId: getDeviceSession
+      summary: Sesión del dispositivo enrollado
+      description: |
+        Autentica con `Authorization: Bearer <AUTORIZACION_TOKENS.TOKEN>`
+        (token de equipo, no JWT). Funciona aunque `REQUIERE_AUTH` sea true.
+        La app Android lo usa al arrancar para saber si debe mostrar login.
+      security:
+        - DeviceTokenAuth: []
+      responses:
+        '200':
+          description: Estado de sesión del dispositivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaSesionDispositivo'
+        '401':
+          description: |
+            Token inválido, inactivo, vencido, sin dispositivo o dispositivo inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /auth/login:
     post:
       tags: [Autenticación]
@@ -259,6 +290,8 @@ paths:
       description: |
         Autentica un usuario de `USUARIOS` activo.
         Responde `401` con `invalid_credentials` si el código o la contraseña no coinciden.
+        Si el token de equipo tiene `REQUIERE_AUTH = true`, la app debe enviar
+        este JWT en `Authorization` y el token de equipo en `X-Device-Token`.
       requestBody:
         required: true
         content:
@@ -2567,6 +2600,22 @@ paths:
           $ref: '#/components/responses/ErrorInterno'
 components:
   securitySchemes:
+    DeviceTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token de dispositivo
+      description: |
+        Valor de `AUTORIZACION_TOKENS.TOKEN` tras enrollment.
+        Usado en `GET /auth/session`. Si `REQUIERE_AUTH` es true, el resto
+        de rutas protegidas no aceptan solo este Bearer: hay que enviar
+        JWT de usuario en `Authorization` y este valor en `X-Device-Token`.
+    DeviceTokenHeader:
+      type: apiKey
+      in: header
+      name: X-Device-Token
+      description: |
+        Token de equipo (`AUTORIZACION_TOKENS.TOKEN`) cuando
+        `Authorization` lleva el JWT de usuario y `REQUIERE_AUTH` es true.
     BearerAuth:
       type: http
       scheme: bearer
@@ -3647,6 +3696,7 @@ components:
     ErrorAutorizacionToken:
       description: |
         El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_id_dispositivo`,
+        `invalid_requiere_auth`,
         `invalid_token`, `invalid_nombre`, `invalid_activo`, `invalid_expira_en`
         o `invalid_autorizacion_token`.
       content:
@@ -3719,6 +3769,42 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/Login'
+    SesionDispositivo:
+      type: object
+      required: [REQUIERE_AUTH, DISPOSITIVO, TOKEN]
+      properties:
+        REQUIERE_AUTH:
+          type: boolean
+        DISPOSITIVO:
+          type: object
+          required: [ID, IDENTIFICADOR, NOMBRE]
+          properties:
+            ID:
+              type: integer
+              minimum: 1
+            IDENTIFICADOR:
+              type: string
+            NOMBRE:
+              type: string
+              nullable: true
+        TOKEN:
+          type: object
+          required: [ID, NOMBRE, REQUIERE_AUTH]
+          properties:
+            ID:
+              type: integer
+              minimum: 1
+            NOMBRE:
+              type: string
+            REQUIERE_AUTH:
+              type: boolean
+    RespuestaSesionDispositivo:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SesionDispositivo'
     Metadata:
       description: |
         Vacío cuando la respuesta no es una lista.
@@ -5441,6 +5527,7 @@ components:
         - TOKEN
         - NOMBRE
         - ACTIVO
+        - REQUIERE_AUTH
         - EXPIRA_EN
         - ULTIMO_USO_EN
         - CREADO_EN
@@ -5463,6 +5550,11 @@ components:
           minLength: 1
         ACTIVO:
           type: boolean
+        REQUIERE_AUTH:
+          type: boolean
+          description: |
+            Si es true, la app Android exige login de `USUARIOS` y envía
+            JWT + `X-Device-Token` en las peticiones protegidas.
         EXPIRA_EN:
           type: string
           format: date-time
@@ -5495,6 +5587,9 @@ components:
           type: string
           minLength: 1
         ACTIVO:
+          type: boolean
+          default: true
+        REQUIERE_AUTH:
           type: boolean
           default: true
         EXPIRA_EN:
