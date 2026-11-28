@@ -10,6 +10,7 @@ const {
   likeContains,
 } = require('../listFilters');
 const { listRecepciones } = require('./recepciones');
+const { requireUsuarioUbicacion } = require('../usuarioUbicacion');
 
 const FIELDS = [
   'ID',
@@ -440,6 +441,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const record = parseBody(req.body);
   try {
+    await requireUsuarioUbicacion(record.USUARIO_ID, record.ID_ORIGEN_USUARIO);
     const result = await pool.query(
       `INSERT INTO "EXPEDICIONES" (
          "ID_UNIDAD", "FECHA_CIERRE", "ID_UBICACION_SALIDA",

@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_usuario_id: 'Usuario inválido.',
       invalid_id_origen_usuario: 'Origen de usuario inválido.',
       invalid_usuario_origen: 'Usuario y origen deben ir juntos.',
+      usuario_sin_ubicacion: 'Tu usuario no tiene una ubicación asignada.',
       invalid_expedicion: 'Datos de expedición inválidos.',
       invalid_abierta: 'Filtro de abierta inválido.',
       unidad_ya_abierta: 'Esa unidad ya tiene una expedición abierta.',

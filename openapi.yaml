@@ -69,8 +69,10 @@ tags:
       Registro `USUARIOS`.
       Cuentas internas autenticables.
       `UBICACION_ID` es la ubicación origen por defecto del usuario.
-      Al crear un lote con `USUARIO_ID` interno (`ID_ORIGEN_USUARIO = 1`),
-      si el usuario tiene `UBICACION_ID` se crea `LOTES_UBICACIONES` tipo ORIGEN.
+      Al crear entidades ligadas a ubicación (lote, expedición, lote-ubicación,
+      recepción) el usuario interno debe tener `UBICACION_ID`; si no,
+      responde `usuario_sin_ubicacion`.
+      En el alta de lote se crea además `LOTES_UBICACIONES` tipo ORIGEN.
       `CONTRASENA_HASH` no se expone. `ES_SEMILLA` lo asigna el servicio.
       `GET /usuarios/{id}/roles` lista los roles asignados al usuario.
   - name: Permisos
@@ -138,8 +140,8 @@ tags:
       Solo la tarima puede apuntar a la unidad de transporte.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
-      En el alta, si el usuario es interno y tiene `UBICACION_ID`,
-      el servicio crea también la ubicación ORIGEN del lote.
+      En el alta exige usuario interno con `UBICACION_ID` y crea la
+      ubicación ORIGEN del lote. Sin ubicación responde `usuario_sin_ubicacion`.
   - name: Expediciones
     description: |
       Registro `EXPEDICIONES`.
@@ -147,6 +149,8 @@ tags:
       (`FECHA_CIERRE` nulo).
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
+      En el alta el usuario interno debe tener `UBICACION_ID`
+      (`usuario_sin_ubicacion` si no).
   - name: Embarques
     description: |
       Registro `EXPEDICIONES_LOTES`.
@@ -176,11 +180,15 @@ tags:
       Une un lote, un tipo y una ubicación.
       Un lote tiene como mucho un DESTINO.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+      En el alta el usuario interno debe tener `UBICACION_ID`
+      (`usuario_sin_ubicacion` si no).
   - name: Recepciones
     description: |
       Registro `RECEPCIONES`.
       Une una expedición con la ubicación donde se recibe.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
+      En el alta el usuario interno debe tener `UBICACION_ID`
+      (`usuario_sin_ubicacion` si no).
   - name: Lotes recibidos
     description: |
       Registro `RECEPCIONES_LOTES`.
@@ -1656,9 +1664,10 @@ paths:
       operationId: createLote
       summary: Crea un lote
       description: |
-        Si `USUARIO_ID` e `ID_ORIGEN_USUARIO = 1` y ese usuario tiene `UBICACION_ID`,
-        el servicio inserta también `LOTES_UBICACIONES` con tipo ORIGEN (`ID_TIPO = 1`),
-        la misma `UBICACION_ID` y el mismo par de auditoría.
+        Exige `USUARIO_ID` con `ID_ORIGEN_USUARIO = 1` y `UBICACION_ID` asignada;
+        si no, responde `usuario_sin_ubicacion`.
+        Inserta también `LOTES_UBICACIONES` con tipo ORIGEN (`ID_TIPO = 1`),
+        esa `UBICACION_ID` y el mismo par de auditoría.
         La respuesta sigue siendo solo el lote.
       requestBody:
         $ref: '#/components/requestBodies/Lote'
@@ -1775,6 +1784,7 @@ paths:
       description: |
         Si `FECHA_CIERRE` se omite o va `null`, la expedición queda abierta.
         No puede haber otra abierta para la misma unidad de transporte.
+        Exige usuario interno con `UBICACION_ID`; si no, `usuario_sin_ubicacion`.
       requestBody:
         $ref: '#/components/requestBodies/Expedicion'
       responses:
@@ -2477,6 +2487,8 @@ paths:
       tags: [Ubicaciones de lote]
       operationId: createLoteUbicacion
       summary: Asocia un lote con una ubicación
+      description: |
+        Exige usuario interno con `UBICACION_ID`; si no, `usuario_sin_ubicacion`.
       requestBody:
         $ref: '#/components/requestBodies/LoteUbicacion'
       responses:
@@ -2603,6 +2615,8 @@ paths:
       tags: [Recepciones]
       operationId: createRecepcion
       summary: Crea una recepción
+      description: |
+        Exige usuario interno con `UBICACION_ID`; si no, `usuario_sin_ubicacion`.
       requestBody:
         $ref: '#/components/requestBodies/Recepcion'
       responses:
@@ -3514,9 +3528,9 @@ components:
     Lote:
       required: true
       description: |
-        `PADRE_ID`, `ID_UNIDAD`, `USUARIO_ID` e `ID_ORIGEN_USUARIO` se pueden omitir.
-        `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
-        En el alta, un usuario interno con `UBICACION_ID` genera la ORIGEN del lote.
+        `PADRE_ID` e `ID_UNIDAD` se pueden omitir.
+        En el alta, `USUARIO_ID` e `ID_ORIGEN_USUARIO = 1` son obligatorios
+        y el usuario debe tener `UBICACION_ID` (genera la ORIGEN del lote).
       content:
         application/json:
           schema:
@@ -3525,8 +3539,8 @@ components:
             ID_TIPO: 1
             PADRE_ID: null
             ID_UNIDAD: null
-            USUARIO_ID: null
-            ID_ORIGEN_USUARIO: null
+            USUARIO_ID: 1
+            ID_ORIGEN_USUARIO: 1
     Usuario:
       required: true
       description: |
@@ -4072,7 +4086,9 @@ components:
         El cuerpo no cumple la jerarquía del lote.
         `error.error` puede ser `invalid_body`, `invalid_id_tipo`, `invalid_padre_id`,
         `invalid_id_unidad`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
-        `invalid_usuario_origen`, `invalid_tipo_lote` o `invalid_lote`.
+        `invalid_usuario_origen`, `usuario_sin_ubicacion`, `invalid_tipo_lote` o `invalid_lote`.
+        `usuario_sin_ubicacion` responde en el alta si no hay usuario interno
+        o si ese usuario no tiene `UBICACION_ID`.
         `invalid_id_unidad` también responde cuando una categoría final trae unidad de transporte
         o cuando esa unidad no existe.
         `invalid_padre_id` también responde si el lote ya está embarcado y se le asigna padre.
@@ -4134,8 +4150,10 @@ components:
         El cuerpo no cumple las reglas de la expedición.
         `error.error` puede ser `invalid_body`, `invalid_id_unidad`, `invalid_fecha_cierre`,
         `invalid_id_ubicacion_salida`, `invalid_ubicacion_salida_id`,
-        `invalid_usuario_id`, `invalid_id_origen_usuario`, `invalid_usuario_origen`
-        o `invalid_expedicion`.
+        `invalid_usuario_id`, `invalid_id_origen_usuario`, `invalid_usuario_origen`,
+        `usuario_sin_ubicacion` o `invalid_expedicion`.
+        `usuario_sin_ubicacion` responde en el alta si el usuario interno
+        no tiene `UBICACION_ID`.
       content:
         application/json:
           schema:
@@ -4378,8 +4396,8 @@ components:
       description: |
         El lote, la ubicación, el tipo o el usuario no son válidos.
         `error.error` puede ser `invalid_body`, `invalid_id_lote`, `invalid_ubicacion_id`,
-        `invalid_id_tipo`, `invalid_usuario_id`, `invalid_id_origen_usuario`
-        o `invalid_usuario_origen`.
+        `invalid_id_tipo`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
+        `invalid_usuario_origen` o `usuario_sin_ubicacion`.
       content:
         application/json:
           schema:
@@ -4389,7 +4407,7 @@ components:
         La expedición, la ubicación o el usuario no son válidos.
         `error.error` puede ser `invalid_body`, `invalid_id_expedicion`,
         `invalid_ubicacion_id`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
-        `invalid_usuario_origen` o `invalid_recepcion`.
+        `invalid_usuario_origen`, `usuario_sin_ubicacion` o `invalid_recepcion`.
       content:
         application/json:
           schema:
@@ -5362,8 +5380,8 @@ components:
       description: |
         En el reemplazo, `PADRE_ID` e `ID_UNIDAD` omitidos se guardan como `null`.
         `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos: ambos null o ambos con valor.
-        En el alta con origen interno (`1`), si el usuario tiene `UBICACION_ID`
-        se crea la ORIGEN del lote en `LOTES_UBICACIONES`.
+        En el alta exige origen interno (`1`) con `UBICACION_ID` y crea la
+        ORIGEN del lote en `LOTES_UBICACIONES` (`usuario_sin_ubicacion` si no).
         `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     Usuario:
       type: object

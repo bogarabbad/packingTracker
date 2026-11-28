@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_unidad: 'Unidad inválida.',
       invalid_tipo_lote: 'El lote no cumple las reglas de su tipo.',
       invalid_lote: 'Datos de lote inválidos.',
+      usuario_sin_ubicacion: 'Tu usuario no tiene una ubicación asignada.',
       invalid_id_lote: 'Lote inválido.',
       invalid_referencia: 'Referencia inválida.',
       invalid_descripcion: 'Descripción inválida.',

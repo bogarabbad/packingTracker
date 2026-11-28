@@ -8,6 +8,7 @@ const {
   parseOptionalPositiveInt,
 } = require('../listFilters');
 const { listLotesUbicaciones } = require('./lotesUbicaciones');
+const { requireUsuarioUbicacion } = require('../usuarioUbicacion');
 
 const FIELDS =
   '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "ID_ORIGEN_USUARIO", "CREADO_EN", "ACTUALIZADO_EN"';
@@ -254,6 +255,13 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Alta de lote exige usuario interno con ubicación → ORIGEN del lote.
+    const ubicacionId = await requireUsuarioUbicacion(
+      record.USUARIO_ID,
+      record.ID_ORIGEN_USUARIO,
+      client,
+    );
+
     const result = await client.query(
       `INSERT INTO "LOTES" ("ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "ID_ORIGEN_USUARIO")
        VALUES ($1, $2, $3, $4, $5)
@@ -268,30 +276,18 @@ router.post('/', async (req, res) => {
     );
     const lote = result.rows[0];
 
-    // Usuario interno con ubicación por defecto → ORIGEN del lote.
-    if (record.USUARIO_ID !== null && record.ID_ORIGEN_USUARIO === 1) {
-      const userResult = await client.query(
-        `SELECT "UBICACION_ID" FROM "USUARIOS" WHERE "ID" = $1`,
-        [record.USUARIO_ID],
-      );
-      const ubicacionId = userResult.rows[0]
-        ? mapNumber(userResult.rows[0].UBICACION_ID)
-        : null;
-      if (ubicacionId !== null) {
-        await client.query(
-          `INSERT INTO "LOTES_UBICACIONES" (
-             "ID_LOTE", "UBICACION_ID", "ID_TIPO", "USUARIO_ID", "ID_ORIGEN_USUARIO"
-           )
-           VALUES ($1, $2, 1, $3, $4)`,
-          [
-            lote.ID,
-            ubicacionId,
-            record.USUARIO_ID,
-            record.ID_ORIGEN_USUARIO,
-          ],
-        );
-      }
-    }
+    await client.query(
+      `INSERT INTO "LOTES_UBICACIONES" (
+         "ID_LOTE", "UBICACION_ID", "ID_TIPO", "USUARIO_ID", "ID_ORIGEN_USUARIO"
+       )
+       VALUES ($1, $2, 1, $3, $4)`,
+      [
+        lote.ID,
+        ubicacionId,
+        record.USUARIO_ID,
+        record.ID_ORIGEN_USUARIO,
+      ],
+    );
 
     await client.query('COMMIT');
     sendData(res, 201, mapRow(lote));

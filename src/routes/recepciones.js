@@ -5,6 +5,7 @@ const { sendData } = require('../respond');
 const { paginationFromQuery, paginationMetadata } = require('../pagination');
 const { parseOptionalPositiveInt } = require('../listFilters');
 const { listRecepcionesLotes } = require('./recepcionesLotes');
+const { requireUsuarioUbicacion } = require('../usuarioUbicacion');
 
 const FIELDS = [
   'ID',
@@ -216,6 +217,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const record = parseBody(req.body);
   try {
+    await requireUsuarioUbicacion(record.USUARIO_ID, record.ID_ORIGEN_USUARIO);
     const result = await pool.query(
       `INSERT INTO "RECEPCIONES" (
          "ID_EXPEDICION", "UBICACION_ID", "USUARIO_ID", "ID_ORIGEN_USUARIO"
