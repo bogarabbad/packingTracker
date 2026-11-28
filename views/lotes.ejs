@@ -64,6 +64,7 @@
                       <th scope="col">ID</th>
                       <th scope="col">Tipo</th>
                       <th scope="col">Final</th>
+                      <th scope="col">Origen</th>
                       <th scope="col">Padre</th>
                       <th scope="col">Unidad transporte</th>
                       <th scope="col" class="text-right">Acciones</th>
@@ -71,7 +72,7 @@
                   </thead>
                   <tbody id="lo-tbody">
                     <tr>
-                      <td colspan="6" class="text-muted-foreground">Sin registros.</td>
+                      <td colspan="7" class="text-muted-foreground">Sin registros.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -109,6 +110,13 @@
         <div id="lo-unidad-wrap" class="hidden flex flex-col gap-2">
           <label class="ui-label" for="lo-id-unidad">Unidad de transporte</label>
           <select class="ui-input" id="lo-id-unidad" name="ID_UNIDAD"></select>
+        </div>
+        <div id="lo-origen-wrap" class="flex flex-col gap-2">
+          <label class="ui-label" for="lo-origen-label">Ubicación origen</label>
+          <p id="lo-origen-label" class="ui-input bg-muted text-sm">—</p>
+          <p id="lo-origen-hint" class="text-xs text-muted-foreground">
+            Se toma de tu usuario y se asigna al crear el lote.
+          </p>
         </div>
         <p id="lo-form-error" class="hidden text-sm text-destructive" role="alert"></p>
         <footer class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

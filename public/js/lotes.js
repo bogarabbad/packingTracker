@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     unidadesMedida: new Map(),
     unidadesTransporte: new Map(),
     lotesCache: new Map(),
+    ubicaciones: new Map(),
+    origenByLote: new Map(),
     referencias: [],
     productos: [],
     hijos: [],
@@ -91,6 +93,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       USUARIO_ID: Number(usuario.ID),
       ID_ORIGEN_USUARIO: 1,
     };
+  }
+
+  function sessionUbicacionId() {
+    const usuario = window.PackingApi.getUsuario();
+    if (!usuario || usuario.UBICACION_ID == null) {
+      return null;
+    }
+    return Number(usuario.UBICACION_ID);
+  }
+
+  function ubicacionLabel(id) {
+    if (id == null) {
+      return '—';
+    }
+    const ubicacion = state.ubicaciones.get(Number(id));
+    if (!ubicacion) {
+      return `#${id}`;
+    }
+    return `${ubicacion.CODIGO} · ${ubicacion.NOMBRE}`;
+  }
+
+  function origenLabelForLote(loteId) {
+    const origenId = state.origenByLote.get(Number(loteId));
+    return ubicacionLabel(origenId == null ? null : origenId);
   }
 
   function optionalNumber(value) {
@@ -215,22 +241,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       (unidad) => `${unidad.CODIGO} · ${unidad.PLACAS}`,
     );
 
+    const origenLabel = document.getElementById('lo-origen-label');
+    const origenHint = document.getElementById('lo-origen-hint');
     if (row) {
       tipoSelect.value = String(row.ID_TIPO);
       syncFormByTipo();
       padreSelect.value = row.PADRE_ID == null ? '' : String(row.PADRE_ID);
       unidadSelect.value = row.ID_UNIDAD == null ? '' : String(row.ID_UNIDAD);
-    } else if (creatingChild) {
-      const firstFinal = tiposList[0];
-      if (firstFinal) {
-        tipoSelect.value = String(firstFinal.ID);
-      }
-      syncFormByTipo();
-      padreSelect.value = String(state.formOptions.padreId);
-      padreSelect.disabled = true;
+      origenLabel.textContent = origenLabelForLote(row.ID);
+      origenHint.textContent = 'Ubicación origen ya asignada al lote.';
     } else {
-      syncFormByTipo();
-      padreSelect.disabled = false;
+      const ubicacionId = sessionUbicacionId();
+      origenLabel.textContent = ubicacionId == null
+        ? 'Sin ubicación en tu usuario'
+        : ubicacionLabel(ubicacionId);
+      origenHint.textContent = ubicacionId == null
+        ? 'Asigna una ubicación por defecto a tu usuario antes de crear lotes.'
+        : 'Se toma de tu usuario y se asigna al crear el lote.';
+      if (creatingChild) {
+        const firstFinal = tiposList[0];
+        if (firstFinal) {
+          tipoSelect.value = String(firstFinal.ID);
+        }
+        syncFormByTipo();
+        padreSelect.value = String(state.formOptions.padreId);
+        padreSelect.disabled = true;
+      } else {
+        syncFormByTipo();
+        padreSelect.disabled = false;
+      }
     }
 
     formDialog.showModal();
@@ -291,7 +330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRows(rows) {
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-muted-foreground">Sin registros.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-muted-foreground">Sin registros.</td></tr>';
       return;
     }
 
@@ -310,6 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               ${esFinal ? 'Sí' : 'No'}
             </span>
           </td>
+          <td>${escapeHtml(origenLabelForLote(row.ID))}</td>
           <td>${row.PADRE_ID == null ? '—' : `#${row.PADRE_ID}`}</td>
           <td>${escapeHtml(unidad)}</td>
           <td class="text-right">
@@ -485,19 +525,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!detailDialog.open) {
       detailDialog.showModal();
     }
+    await ensureOrigenForLote(lote.ID);
+    const origenText = origenLabelForLote(lote.ID);
+    badges.push(`<span class="ui-badge ui-badge-outline">Origen: ${escapeHtml(origenText)}</span>`);
+    document.getElementById('lo-detail-badges').innerHTML = badges.join('');
     await loadDetailChildren(lote);
   }
 
+  async function ensureOrigenForLote(loteId) {
+    const id = Number(loteId);
+    if (state.origenByLote.has(id)) {
+      return;
+    }
+    const result = await window.PackingApi.request(
+      `/lotes/${id}/ubicaciones?id_tipo=1&items=10`,
+    );
+    if (!result.ok) {
+      return;
+    }
+    const rows = Array.isArray(result.data) ? result.data : [];
+    const origen = rows.find((row) => Number(row.ID_TIPO) === 1) || rows[0];
+    if (origen) {
+      state.origenByLote.set(id, Number(origen.UBICACION_ID));
+    }
+  }
+
+  async function loadOrigenesForRows(rows) {
+    const missing = rows
+      .map((row) => Number(row.ID))
+      .filter((id) => !state.origenByLote.has(id));
+    if (!missing.length) {
+      return;
+    }
+    await Promise.all(missing.map((id) => ensureOrigenForLote(id)));
+  }
+
   async function loadCatalogs() {
-    const [tipos, refTipos, unidades, transporte, lotes] = await Promise.all([
+    const [tipos, refTipos, unidades, transporte, lotes, ubicaciones, origenes] = await Promise.all([
       window.PackingApi.request('/lotes-tipos?items=100'),
       window.PackingApi.request('/referencias-tipos?items=100'),
       window.PackingApi.request('/unidades-medida?items=100'),
       window.PackingApi.request('/unidades-transporte?items=100'),
       window.PackingApi.request('/lotes?items=100'),
+      window.PackingApi.request('/ubicaciones?items=100'),
+      window.PackingApi.request('/lotes-ubicaciones?id_tipo=1&items=100'),
     ]);
 
-    if (!tipos.ok || !refTipos.ok || !unidades.ok || !transporte.ok || !lotes.ok) {
+    if (
+      !tipos.ok
+      || !refTipos.ok
+      || !unidades.ok
+      || !transporte.ok
+      || !lotes.ok
+      || !ubicaciones.ok
+    ) {
       throw new Error('catalogs');
     }
 
@@ -505,7 +586,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.refTipos = new Map((refTipos.data || []).map((row) => [row.ID, row]));
     state.unidadesMedida = new Map((unidades.data || []).map((row) => [row.ID, row]));
     state.unidadesTransporte = new Map((transporte.data || []).map((row) => [row.ID, row]));
+    state.ubicaciones = new Map((ubicaciones.data || []).map((row) => [row.ID, row]));
     state.lotesCache = new Map((lotes.data || []).map((row) => [row.ID, row]));
+    state.origenByLote = new Map();
+    if (origenes.ok) {
+      (origenes.data || []).forEach((row) => {
+        if (Number(row.ID_TIPO) === 1) {
+          state.origenByLote.set(Number(row.ID_LOTE), Number(row.UBICACION_ID));
+        }
+      });
+    }
 
     fillSelect(
       document.getElementById('lo-filter-tipo'),
@@ -563,7 +653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await window.PackingApi.request(buildListUrl());
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
-      tbody.innerHTML = '<tr><td colspan="6" class="text-destructive">No se pudo obtener el listado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-destructive">No se pudo obtener el listado.</td></tr>';
       window.PackingToast.toast(mapError(result.error), 'error');
       if (result.status === 401) {
         window.location.replace('/login');
@@ -573,6 +663,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const rows = Array.isArray(result.data) ? result.data : [];
     rows.forEach((row) => state.lotesCache.set(row.ID, row));
+    await loadOrigenesForRows(rows);
     state.total = result.metadata.total ?? rows.length;
     statusNode.textContent = `${state.total} registro(s)`;
     renderRows(rows);
@@ -721,11 +812,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const idValue = document.getElementById('lo-id').value;
     const final = tipoEsFinal(tipoSelect.value);
     const returnToPadreId = state.formOptions?.returnToPadreId ?? null;
+    const audit = sessionUsuario();
+
+    if (!idValue) {
+      if (!audit.USUARIO_ID) {
+        showFormError('Debes iniciar sesión para crear un lote.');
+        return;
+      }
+      if (sessionUbicacionId() == null) {
+        showFormError(mapError('usuario_sin_ubicacion'));
+        window.PackingToast.toast(mapError('usuario_sin_ubicacion'), 'error');
+        return;
+      }
+    }
+
     const payload = {
       ID_TIPO: Number(tipoSelect.value),
       PADRE_ID: final ? optionalNumber(padreSelect.value) : null,
       ID_UNIDAD: final ? null : optionalNumber(unidadSelect.value),
-      ...sessionUsuario(),
+      ...audit,
     };
     const submit = document.getElementById('lo-form-submit');
     submit.disabled = true;
@@ -755,6 +860,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.PackingToast.toast(idValue ? 'Lote actualizado' : 'Lote creado');
       state.lotesCache.set(result.data.ID, result.data);
       if (!idValue) {
+        const ubicacionId = sessionUbicacionId();
+        if (ubicacionId != null) {
+          state.origenByLote.set(Number(result.data.ID), ubicacionId);
+        }
         state.page = 1;
       }
       await loadList();
