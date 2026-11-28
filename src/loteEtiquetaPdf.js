@@ -104,9 +104,9 @@ async function buildLoteEtiquetaPdf(lote, options = {}) {
 
     const lines = [
       `Tipo: ${lote.TIPO_CODIGO} · ${lote.TIPO_NOMBRE}`,
-      lote.PADRE_ID == null ? 'Padre: —' : `Padre: #${lote.PADRE_ID}`,
+      lote.PADRE_ID == null ? null : `Padre: #${lote.PADRE_ID}`,
       `Creado: ${formatCreadoEn(lote.CREADO_EN)}`,
-    ];
+    ].filter(Boolean);
 
     for (const line of lines) {
       if (y + bodySize > maxY) {
