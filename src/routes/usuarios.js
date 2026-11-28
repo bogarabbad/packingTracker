@@ -198,6 +198,54 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/:id/roles', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const existing = await pool.query(
+      `SELECT 1 FROM "${TABLE}" WHERE "ID" = $1`,
+      [id],
+    );
+    if (!existing.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+
+    const page = paginationFromQuery(req.query);
+    const totalResult = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM "USUARIOS_ROLES" AS ur
+       WHERE ur."USUARIO_ID" = $1`,
+      [id],
+    );
+    const result = await pool.query(
+      `SELECT r."ID", r."CODIGO", r."NOMBRE", r."DESCRIPCION", r."ACTIVO",
+              r."ES_SEMILLA", r."CREADO_EN", r."ACTUALIZADO_EN"
+       FROM "USUARIOS_ROLES" AS ur
+       JOIN "ROLES" AS r ON r."ID" = ur."ROL_ID"
+       WHERE ur."USUARIO_ID" = $1
+       ORDER BY r."CODIGO" ASC, r."ID" ASC
+       LIMIT $2 OFFSET $3`,
+      [id, page.items, page.offset],
+    );
+    sendData(
+      res,
+      200,
+      result.rows.map((row) => ({
+        ID: Number(row.ID),
+        CODIGO: row.CODIGO,
+        NOMBRE: row.NOMBRE,
+        DESCRIPCION: row.DESCRIPCION,
+        ACTIVO: row.ACTIVO,
+        ES_SEMILLA: row.ES_SEMILLA,
+        CREADO_EN: row.CREADO_EN,
+        ACTUALIZADO_EN: row.ACTUALIZADO_EN,
+      })),
+      paginationMetadata(page.page, page.items, totalResult.rows[0].total),
+    );
+  } catch (err) {
+    translate(err);
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const id = parseId(req.params.id);
   try {

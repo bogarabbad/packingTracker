@@ -20,6 +20,7 @@ info:
     el CRUD de `RECEPCIONES` y `RECEPCIONES_LOTES`,
     y el CRUD de `DISPOSITIVOS_TIPOS`, `DISPOSITIVOS` y `AUTORIZACION_TOKENS`,
     el CRUD de `USUARIOS` (con `UBICACION_ID` opcional como origen por defecto),
+    el CRUD de `PERMISOS`, `ROLES`, `ROLES_PERMISOS` y `USUARIOS_ROLES`,
     más el enrollment público de dispositivos (`POST /enrollment`).
 
     Toda respuesta usa el mismo sobre: `data`, `_metadata` y `error`.
@@ -71,6 +72,27 @@ tags:
       Al crear un lote con `USUARIO_ID` interno (`ID_ORIGEN_USUARIO = 1`),
       si el usuario tiene `UBICACION_ID` se crea `LOTES_UBICACIONES` tipo ORIGEN.
       `CONTRASENA_HASH` no se expone. `ES_SEMILLA` lo asigna el servicio.
+      `GET /usuarios/{id}/roles` lista los roles asignados al usuario.
+  - name: Permisos
+    description: |
+      Catálogo `PERMISOS`.
+      Códigos estables `recurso.accion` (por ejemplo `lotes.crear`).
+      Semillas no se eliminan.
+  - name: Roles
+    description: |
+      Catálogo `ROLES`.
+      Semillas: `admin`, `empacador`, `embarque`.
+      `GET /roles/{id}/permisos` lista los permisos del rol.
+  - name: Roles y permisos
+    description: |
+      Relación `ROLES_PERMISOS`.
+      Une un rol con un permiso. El par es único.
+      Semillas no se eliminan.
+  - name: Usuarios y roles
+    description: |
+      Relación `USUARIOS_ROLES`.
+      Une un usuario con un rol. El par es único.
+      Semillas no se eliminan.
   - name: Estatus de unidades
     description: Catálogo `UNIDADES_ESTATUS`.
   - name: Tipos de unidades
@@ -446,6 +468,476 @@ paths:
       tags: [Usuarios]
       operationId: deleteUsuario
       summary: Elimina un usuario
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /usuarios/{id}/roles:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Usuarios]
+      operationId: listUsuarioRoles
+      summary: Lista los roles de un usuario
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          description: Roles del usuario ordenados por `CODIGO`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolLista'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /permisos:
+    get:
+      tags: [Permisos]
+      operationId: listPermisos
+      summary: Lista los permisos
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+      responses:
+        '200':
+          description: Permisos ordenados por `CODIGO`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPermisoLista'
+        '400':
+          description: Paginación, `q` o `activo` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Permisos]
+      operationId: createPermiso
+      summary: Crea un permiso
+      requestBody:
+        $ref: '#/components/requestBodies/Permiso'
+      responses:
+        '201':
+          description: Permiso creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPermiso'
+        '400':
+          $ref: '#/components/responses/ErrorPermiso'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /permisos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Permisos]
+      operationId: getPermiso
+      summary: Obtiene un permiso
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPermiso'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Permisos]
+      operationId: updatePermiso
+      summary: Reemplaza un permiso
+      requestBody:
+        $ref: '#/components/requestBodies/Permiso'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPermiso'
+        '400':
+          $ref: '#/components/responses/ErrorPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Permisos]
+      operationId: deletePermiso
+      summary: Elimina un permiso
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /roles:
+    get:
+      tags: [Roles]
+      operationId: listRoles
+      summary: Lista los roles
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+      responses:
+        '200':
+          description: Roles ordenados por `CODIGO`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolLista'
+        '400':
+          description: Paginación, `q` o `activo` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Roles]
+      operationId: createRol
+      summary: Crea un rol
+      requestBody:
+        $ref: '#/components/requestBodies/Rol'
+      responses:
+        '201':
+          description: Rol creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRol'
+        '400':
+          $ref: '#/components/responses/ErrorRol'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /roles/{id}/permisos:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Roles]
+      operationId: listRolPermisos
+      summary: Lista los permisos de un rol
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+      responses:
+        '200':
+          description: Permisos del rol ordenados por `CODIGO`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPermisoLista'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Roles]
+      operationId: getRol
+      summary: Obtiene un rol
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRol'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Roles]
+      operationId: updateRol
+      summary: Reemplaza un rol
+      requestBody:
+        $ref: '#/components/requestBodies/Rol'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRol'
+        '400':
+          $ref: '#/components/responses/ErrorRol'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: `duplicate_codigo` si el código ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Roles]
+      operationId: deleteRol
+      summary: Elimina un rol
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /roles-permisos:
+    get:
+      tags: [Roles y permisos]
+      operationId: listRolesPermisos
+      summary: Lista las relaciones rol-permiso
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/RolId'
+        - $ref: '#/components/parameters/PermisoId'
+      responses:
+        '200':
+          description: Relaciones ordenadas por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolPermisoLista'
+        '400':
+          description: Paginación, `rol_id` o `permiso_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Roles y permisos]
+      operationId: createRolPermiso
+      summary: Asigna un permiso a un rol
+      requestBody:
+        $ref: '#/components/requestBodies/RolPermiso'
+      responses:
+        '201':
+          description: Relación creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolPermiso'
+        '400':
+          $ref: '#/components/responses/ErrorRolPermiso'
+        '409':
+          description: `duplicate_relacion` si el par ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /roles-permisos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Roles y permisos]
+      operationId: getRolPermiso
+      summary: Obtiene una relación rol-permiso
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolPermiso'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Roles y permisos]
+      operationId: updateRolPermiso
+      summary: Reemplaza una relación rol-permiso
+      requestBody:
+        $ref: '#/components/requestBodies/RolPermiso'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRolPermiso'
+        '400':
+          $ref: '#/components/responses/ErrorRolPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: `duplicate_relacion` si el par ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Roles y permisos]
+      operationId: deleteRolPermiso
+      summary: Elimina una relación rol-permiso
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /usuarios-roles:
+    get:
+      tags: [Usuarios y roles]
+      operationId: listUsuariosRoles
+      summary: Lista las relaciones usuario-rol
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/UsuarioId'
+        - $ref: '#/components/parameters/RolId'
+      responses:
+        '200':
+          description: Relaciones ordenadas por `CREADO_EN` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuarioRolLista'
+        '400':
+          description: Paginación, `usuario_id` o `rol_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Usuarios y roles]
+      operationId: createUsuarioRol
+      summary: Asigna un rol a un usuario
+      requestBody:
+        $ref: '#/components/requestBodies/UsuarioRol'
+      responses:
+        '201':
+          description: Relación creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuarioRol'
+        '400':
+          $ref: '#/components/responses/ErrorUsuarioRol'
+        '409':
+          description: `duplicate_relacion` si el par ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /usuarios-roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Usuarios y roles]
+      operationId: getUsuarioRol
+      summary: Obtiene una relación usuario-rol
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuarioRol'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Usuarios y roles]
+      operationId: updateUsuarioRol
+      summary: Reemplaza una relación usuario-rol
+      requestBody:
+        $ref: '#/components/requestBodies/UsuarioRol'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUsuarioRol'
+        '400':
+          $ref: '#/components/responses/ErrorUsuarioRol'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: `duplicate_relacion` si el par ya existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Usuarios y roles]
+      operationId: deleteUsuarioRol
+      summary: Elimina una relación usuario-rol
       responses:
         '200':
           $ref: '#/components/responses/Eliminado'
@@ -2857,6 +3349,30 @@ components:
       schema:
         type: string
         pattern: '^[1-9]\d*$'
+    RolId:
+      name: rol_id
+      in: query
+      required: false
+      description: Filtra por `ROL_ID`. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    PermisoId:
+      name: permiso_id
+      in: query
+      required: false
+      description: Filtra por `PERMISO_ID`. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
+    UsuarioId:
+      name: usuario_id
+      in: query
+      required: false
+      description: Filtra por `USUARIO_ID`. Entero positivo sin ceros a la izquierda.
+      schema:
+        type: string
+        pattern: '^[1-9]\d*$'
     IdRecepcion:
       name: id_recepcion
       in: query
@@ -3028,6 +3544,54 @@ components:
             CONTRASENA: Secreta123!
             UBICACION_ID: 1
             ACTIVO: true
+    Permiso:
+      required: true
+      description: |
+        `DESCRIPCION` omitida o vacía se guarda como `null`.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PermisoEntrada'
+          example:
+            CODIGO: lotes.leer
+            NOMBRE: Leer lotes
+            DESCRIPCION: Consultar lotes
+            ACTIVO: true
+    Rol:
+      required: true
+      description: |
+        `DESCRIPCION` omitida o vacía se guarda como `null`.
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RolEntrada'
+          example:
+            CODIGO: supervisor
+            NOMBRE: Supervisor
+            DESCRIPCION: Supervisa operación
+            ACTIVO: true
+    RolPermiso:
+      required: true
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RolPermisoEntrada'
+          example:
+            ROL_ID: 2
+            PERMISO_ID: 1
+    UsuarioRol:
+      required: true
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UsuarioRolEntrada'
+          example:
+            USUARIO_ID: 1
+            ROL_ID: 2
     Expedicion:
       required: true
       description: |
@@ -3863,6 +4427,38 @@ components:
       description: |
         El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
         `invalid_nombre`, `invalid_contrasena`, `invalid_ubicacion_id` o `invalid_activo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorPermiso:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_nombre`, `invalid_descripcion` o `invalid_activo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorRol:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_codigo`,
+        `invalid_nombre`, `invalid_descripcion` o `invalid_activo`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorRolPermiso:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_rol_id`
+        o `invalid_permiso_id`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ErrorUsuarioRol:
+      description: |
+        El cuerpo no es válido. `error.error` puede ser `invalid_body`, `invalid_usuario_id`
+        o `invalid_rol_id`.
       content:
         application/json:
           schema:
@@ -4836,6 +5432,192 @@ components:
       description: |
         `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
         No se acepta ni se devuelve `CONTRASENA_HASH`.
+    Permiso:
+      type: object
+      required:
+        - ID
+        - CODIGO
+        - NOMBRE
+        - DESCRIPCION
+        - ACTIVO
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    PermisoEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    Rol:
+      type: object
+      required:
+        - ID
+        - CODIGO
+        - NOMBRE
+        - DESCRIPCION
+        - ACTIVO
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    RolEntrada:
+      type: object
+      required: [CODIGO, NOMBRE]
+      properties:
+        CODIGO:
+          type: string
+          minLength: 1
+        NOMBRE:
+          type: string
+          minLength: 1
+        DESCRIPCION:
+          type: string
+          nullable: true
+          minLength: 1
+        ACTIVO:
+          type: boolean
+          default: true
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    RolPermiso:
+      type: object
+      required: [ID, ROL_ID, PERMISO_ID, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ROL_ID:
+          type: integer
+          minimum: 1
+        PERMISO_ID:
+          type: integer
+          minimum: 1
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    RolPermisoEntrada:
+      type: object
+      required: [ROL_ID, PERMISO_ID]
+      properties:
+        ROL_ID:
+          type: integer
+          minimum: 1
+        PERMISO_ID:
+          type: integer
+          minimum: 1
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
+    UsuarioRol:
+      type: object
+      required: [ID, USUARIO_ID, ROL_ID, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        USUARIO_ID:
+          type: integer
+          minimum: 1
+        ROL_ID:
+          type: integer
+          minimum: 1
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UsuarioRolEntrada:
+      type: object
+      required: [USUARIO_ID, ROL_ID]
+      properties:
+        USUARIO_ID:
+          type: integer
+          minimum: 1
+        ROL_ID:
+          type: integer
+          minimum: 1
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
     LoteReferencia:
       type: object
       required:
@@ -5988,6 +6770,78 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Usuario'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaPermiso:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Permiso'
+    RespuestaPermisoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Permiso'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaRol:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Rol'
+    RespuestaRolLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Rol'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaRolPermiso:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RolPermiso'
+    RespuestaRolPermisoLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RolPermiso'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaUsuarioRol:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UsuarioRol'
+    RespuestaUsuarioRolLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UsuarioRol'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaEnrollment:
