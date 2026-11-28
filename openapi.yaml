@@ -142,6 +142,8 @@ tags:
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
       En el alta exige usuario interno con `UBICACION_ID` y crea la
       ubicación ORIGEN del lote. Sin ubicación responde `usuario_sin_ubicacion`.
+      `GET /lotes/{id}/etiqueta.pdf` genera un PDF de etiqueta con el ID
+      en código de barras Code128 (escaneable).
   - name: Expediciones
     description: |
       Registro `EXPEDICIONES`.
@@ -1680,6 +1682,61 @@ paths:
                 $ref: '#/components/schemas/RespuestaLote'
         '400':
           $ref: '#/components/responses/ErrorLote'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /lotes/{id}/etiqueta.pdf:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - name: ancho_mm
+        in: query
+        required: false
+        description: |
+          Ancho de la etiqueta en milímetros (20–200).
+          Por defecto `100`.
+        schema:
+          type: integer
+          minimum: 20
+          maximum: 200
+          example: 100
+      - name: alto_mm
+        in: query
+        required: false
+        description: |
+          Alto de la etiqueta en milímetros (20–200).
+          Por defecto `70`.
+        schema:
+          type: integer
+          minimum: 20
+          maximum: 200
+          example: 70
+    get:
+      tags: [Lotes]
+      operationId: getLoteEtiquetaPdf
+      summary: Genera la etiqueta PDF de un lote
+      description: |
+        Responde un PDF con la información del lote.
+        El código de barras Code128 codifica el `ID` numérico del lote
+        para poder escanearlo.
+        El tamaño de página sigue `ancho_mm` × `alto_mm` (papel/sticker).
+        No usa el sobre JSON habitual: el cuerpo es `application/pdf`.
+      responses:
+        '200':
+          description: PDF de etiqueta.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: |
+            `id`, `ancho_mm` o `alto_mm` inválidos.
+            `error.error` puede ser `invalid_id`, `invalid_ancho_mm` o `invalid_alto_mm`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /lotes/{id}:

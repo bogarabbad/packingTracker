@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_tipo_lote: 'El lote no cumple las reglas de su tipo.',
       invalid_lote: 'Datos de lote inválidos.',
       usuario_sin_ubicacion: 'Tu usuario no tiene una ubicación asignada.',
+      etiqueta_pdf_error: 'No se pudo generar la etiqueta PDF.',
       invalid_id_lote: 'Lote inválido.',
       invalid_referencia: 'Referencia inválida.',
       invalid_descripcion: 'Descripción inválida.',
@@ -691,6 +692,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     closeForm({ reopenPadre: true });
   });
   document.getElementById('lo-detail-close').addEventListener('click', closeDetail);
+  document.getElementById('lo-detail-etiqueta').addEventListener('click', async () => {
+    const lote = state.detailLote;
+    if (!lote) {
+      return;
+    }
+    try {
+      const headers = {};
+      const token = window.PackingApi.getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const response = await fetch(`/lotes/${lote.ID}/etiqueta.pdf`, { headers });
+      if (!response.ok) {
+        window.PackingToast.toast(mapError('etiqueta_pdf_error'), 'error');
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lote-${lote.ID}-etiqueta.pdf`;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.PackingToast.toast(mapError('etiqueta_pdf_error'), 'error');
+    }
+  });
   document.getElementById('lo-detail-edit').addEventListener('click', () => {
     const lote = state.detailLote;
     closeDetail();

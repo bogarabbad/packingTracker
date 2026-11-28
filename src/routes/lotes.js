@@ -9,6 +9,32 @@ const {
 } = require('../listFilters');
 const { listLotesUbicaciones } = require('./lotesUbicaciones');
 const { requireUsuarioUbicacion } = require('../usuarioUbicacion');
+const {
+  buildLoteEtiquetaPdf,
+  DEFAULT_ANCHO_MM,
+  DEFAULT_ALTO_MM,
+  MIN_MM,
+  MAX_MM,
+} = require('../loteEtiquetaPdf');
+const { sendError } = require('../respond');
+
+function parseEtiquetaMm(value, errorCode, fallback) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw httpError(400, errorCode);
+  }
+  const raw = String(value).trim();
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw httpError(400, errorCode);
+  }
+  const mm = Number(raw);
+  if (mm < MIN_MM || mm > MAX_MM) {
+    throw httpError(400, errorCode);
+  }
+  return mm;
+}
 
 const FIELDS =
   '"ID", "ID_TIPO", "PADRE_ID", "ID_UNIDAD", "USUARIO_ID", "ID_ORIGEN_USUARIO", "CREADO_EN", "ACTUALIZADO_EN"';
@@ -229,6 +255,67 @@ router.get('/:id/ubicaciones', async (req, res) => {
     }
     await listLotesUbicaciones(req, res, id);
   } catch (err) {
+    translate(err);
+  }
+});
+
+router.get('/:id/etiqueta.pdf', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const anchoMm = parseEtiquetaMm(
+      req.query.ancho_mm,
+      'invalid_ancho_mm',
+      DEFAULT_ANCHO_MM,
+    );
+    const altoMm = parseEtiquetaMm(
+      req.query.alto_mm,
+      'invalid_alto_mm',
+      DEFAULT_ALTO_MM,
+    );
+
+    const result = await pool.query(
+      `SELECT
+         l."ID",
+         l."PADRE_ID",
+         l."CREADO_EN",
+         t."CODIGO" AS "TIPO_CODIGO",
+         t."NOMBRE" AS "TIPO_NOMBRE"
+       FROM "LOTES" AS l
+       JOIN "LOTES_TIPOS" AS t ON t."ID" = l."ID_TIPO"
+       WHERE l."ID" = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+
+    const pdf = await buildLoteEtiquetaPdf(
+      {
+        ID: Number(row.ID),
+        PADRE_ID: row.PADRE_ID === null || row.PADRE_ID === undefined
+          ? null
+          : Number(row.PADRE_ID),
+        CREADO_EN: row.CREADO_EN,
+        TIPO_CODIGO: row.TIPO_CODIGO,
+        TIPO_NOMBRE: row.TIPO_NOMBRE,
+      },
+      { anchoMm, altoMm },
+    );
+
+    res.status(200);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="lote-${id}-etiqueta.pdf"`,
+    );
+    res.setHeader('Content-Length', pdf.length);
+    res.send(pdf);
+  } catch (err) {
+    if (err.publicError) {
+      sendError(res, err.status || 400, { error: err.publicError });
+      return;
+    }
     translate(err);
   }
 });
