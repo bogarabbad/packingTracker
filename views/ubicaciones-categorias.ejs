@@ -57,13 +57,14 @@
                       <th scope="col">Código</th>
                       <th scope="col">Nombre</th>
                       <th scope="col">Padre</th>
+                      <th scope="col">Receptor</th>
                       <th scope="col">Activo</th>
                       <th scope="col" class="text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="uc-tbody">
                     <tr>
-                      <td colspan="5" class="text-muted-foreground">Sin registros.</td>
+                      <td colspan="6" class="text-muted-foreground">Sin registros.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -101,6 +102,14 @@
             <option value="">Sin padre (raíz)</option>
           </select>
         </div>
+        <div class="flex items-center gap-2">
+          <input id="uc-es-receptor" name="ES_RECEPTOR" type="checkbox" class="size-4 rounded border-input" />
+          <label class="ui-label" for="uc-es-receptor">Receptora padre</label>
+        </div>
+        <p class="text-xs text-muted-foreground">
+          Si está marcada, las ubicaciones de esta categoría pueden recibir lotes
+          cuyo destino sea un hijo en el árbol.
+        </p>
         <div class="flex items-center gap-2">
           <input id="uc-activo" name="ACTIVO" type="checkbox" checked class="size-4 rounded border-input" />
           <label class="ui-label" for="uc-activo">Activa</label>

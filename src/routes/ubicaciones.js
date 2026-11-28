@@ -192,6 +192,58 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/:id/padre-por-categoria', async (req, res) => {
+  const id = parseId(req.params.id);
+  try {
+    const idCategoria = parseOptionalPositiveInt(
+      req.query.id_categoria,
+      'invalid_id_categoria',
+    );
+    if (idCategoria === null) {
+      throw httpError(400, 'invalid_id_categoria');
+    }
+
+    const existing = await pool.query(
+      `SELECT 1 FROM "${TABLE}" WHERE "ID" = $1`,
+      [id],
+    );
+    if (!existing.rows[0]) {
+      throw httpError(404, 'not_found');
+    }
+
+    const categoria = await pool.query(
+      'SELECT 1 FROM "UBICACIONES_CATEGORIAS" WHERE "ID" = $1',
+      [idCategoria],
+    );
+    if (!categoria.rows[0]) {
+      throw httpError(400, 'invalid_id_categoria');
+    }
+
+    const resolved = await pool.query(
+      'SELECT ubicacion_padre_por_categoria($1, $2) AS "ID"',
+      [id, idCategoria],
+    );
+    const padreId = resolved.rows[0]
+      ? Number(resolved.rows[0].ID)
+      : null;
+    if (padreId == null) {
+      throw httpError(404, 'not_found');
+    }
+
+    const result = await pool.query(
+      `SELECT ${FIELDS} FROM "${TABLE}" WHERE "ID" = $1`,
+      [padreId],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    sendData(res, 200, mapRow(row));
+  } catch (err) {
+    translate(err);
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const id = parseId(req.params.id);
   try {

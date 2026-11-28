@@ -40,6 +40,12 @@
               </select>
             </div>
             <div class="flex flex-col gap-2">
+              <label class="ui-label" for="ut-filter-ubicacion">Ubicación</label>
+              <select class="ui-input" id="ut-filter-ubicacion" name="ubicacion_id">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-2">
               <label class="ui-label" for="ut-filter-activo">Activo</label>
               <select class="ui-input" id="ut-filter-activo" name="activo">
                 <option value="">Todos</option>
@@ -63,6 +69,7 @@
                       <th scope="col">Placas</th>
                       <th scope="col">Tipo</th>
                       <th scope="col">Estatus</th>
+                      <th scope="col">Ubicación</th>
                       <th scope="col">Marca</th>
                       <th scope="col">Modelo</th>
                       <th scope="col">Activo</th>
@@ -71,7 +78,7 @@
                   </thead>
                   <tbody id="ut-tbody">
                     <tr>
-                      <td colspan="8" class="text-muted-foreground">Sin registros.</td>
+                      <td colspan="9" class="text-muted-foreground">Sin registros.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -110,6 +117,12 @@
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="ut-id-estatus">Estatus</label>
           <select class="ui-input" id="ut-id-estatus" name="ID_ESTATUS" required></select>
+        </div>
+        <div class="flex flex-col gap-2 sm:col-span-2">
+          <label class="ui-label" for="ut-ubicacion">Ubicación actual</label>
+          <select class="ui-input" id="ut-ubicacion" name="UBICACION_ID">
+            <option value="">Sin ubicación</option>
+          </select>
         </div>
         <div class="flex flex-col gap-2">
           <label class="ui-label" for="ut-numero-economico">Número económico</label>

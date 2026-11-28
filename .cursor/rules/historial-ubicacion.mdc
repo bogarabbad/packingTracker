@@ -1,0 +1,36 @@
+---
+description: Historiales de ubicación definen dónde están unidades y lotes
+alwaysApply: true
+---
+
+# Ubicación actual vía historial
+
+La ubicación actual de una **unidad de transporte** y de un **lote** se define por su historial de ubicaciones, no por un campo suelto que el cliente “ponga a mano” sin dejar rastro.
+
+## Unidades de transporte
+
+- Historial: `UNIDADES_TRANSPORTE_UBICACIONES` (`ID_UNIDAD`, `UBICACION_ID`, `FECHA`).
+- Ubicación actual: el renglón más reciente por `FECHA` descendente, luego `ID` descendente.
+- `UNIDADES_TRANSPORTE.UBICACION_ID` es denormalización de ese renglón (`unidad_transporte_sincronizar_ubicacion`). Tras crear, editar o borrar historial, sincroniza.
+
+## Lotes
+
+- Relaciones en `LOTES_UBICACIONES` con tipos en `LOTES_UBICACIONES_TIPOS`.
+- `ORIGEN` y `DESTINO` siguen siendo roles puntuales (un DESTINO por lote).
+- `XDOCK` es historial de pasos intermedios (cross dock). El XDOCK más reciente por `CREADO_EN` descendente, luego `ID` descendente, es el último intermedio por donde pasó el lote.
+- Al recibir en un padre `ES_RECEPTOR` cuyo hijo es el DESTINO, la base inserta un XDOCK con la ubicación de la recepción.
+
+## Expediciones (estatus)
+
+- Historial: `EXPEDICIONES_ESTATUS_HISTORIAL` (`ID_EXPEDICION`, `ID_ESTATUS`, `FECHA`).
+- Estatus actual: el renglón más reciente por `FECHA` descendente, luego `ID` descendente.
+- `EXPEDICIONES.ID_ESTATUS` es denormalización (`expedicion_sincronizar_estatus` / `expedicion_registrar_estatus`).
+- Los cambios de estatus van por eventos de dominio (o `POST .../finalizar`), no por escritura libre de `ID_ESTATUS` en el body.
+- Abrir recepción (`FECHA_CIERRE` null) en TRANSITO → RECEPCION; cerrar la última abierta → TRANSITO.
+- Una recepción por par expedición + ubicación.
+
+## Al cambiar esquema o API
+
+- No inventes otra “ubicación actual” o “estatus actual” paralelo que ignore el historial.
+- Si hace falta leer dónde está la entidad o en qué estatus está, resuelve desde el historial (o desde la columna sincronizada que lo refleja).
+- Nuevos movimientos deben agregar (o ajustar) historial y sincronizar la columna denormalizada.

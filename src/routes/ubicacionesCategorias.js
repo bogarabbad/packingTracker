@@ -17,6 +17,7 @@ const FIELDS = [
   'CODIGO',
   'NOMBRE',
   'ACTIVO',
+  'ES_RECEPTOR',
   'ES_SEMILLA',
   'CREADO_EN',
   'ACTUALIZADO_EN',
@@ -62,6 +63,18 @@ function parseActivo(value) {
   return value;
 }
 
+function parseEsReceptor(value) {
+  if (value === undefined) {
+    return false;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw httpError(400, 'invalid_es_receptor');
+  }
+
+  return value;
+}
+
 function parseBody(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
@@ -72,6 +85,7 @@ function parseBody(body) {
     CODIGO: requiredText(body.CODIGO, 'invalid_codigo'),
     NOMBRE: requiredText(body.NOMBRE, 'invalid_nombre'),
     ACTIVO: parseActivo(body.ACTIVO),
+    ES_RECEPTOR: parseEsReceptor(body.ES_RECEPTOR),
   };
 }
 
@@ -86,6 +100,7 @@ function mapRow(row) {
     CODIGO: row.CODIGO,
     NOMBRE: row.NOMBRE,
     ACTIVO: row.ACTIVO,
+    ES_RECEPTOR: Boolean(row.ES_RECEPTOR),
     ES_SEMILLA: row.ES_SEMILLA,
     CREADO_EN: row.CREADO_EN,
     ACTUALIZADO_EN: row.ACTUALIZADO_EN,
@@ -148,6 +163,15 @@ router.get('/', async (req, res) => {
       filters.push(`"ACTIVO" = $${params.length}`);
     }
 
+    const esReceptor = parseOptionalBoolean(
+      req.query.es_receptor,
+      'invalid_es_receptor',
+    );
+    if (esReceptor !== null) {
+      params.push(esReceptor);
+      filters.push(`"ES_RECEPTOR" = $${params.length}`);
+    }
+
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
     const totalResult = await pool.query(
       `SELECT COUNT(*)::int AS total FROM "${TABLE}" ${where}`,
@@ -194,10 +218,16 @@ router.post('/', async (req, res) => {
   try {
     await assertSinCiclo(TABLE, null, record.PADRE_ID);
     const result = await pool.query(
-      `INSERT INTO "${TABLE}" ("PADRE_ID", "CODIGO", "NOMBRE", "ACTIVO")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "${TABLE}" ("PADRE_ID", "CODIGO", "NOMBRE", "ACTIVO", "ES_RECEPTOR")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING ${FIELDS}`,
-      [record.PADRE_ID, record.CODIGO, record.NOMBRE, record.ACTIVO],
+      [
+        record.PADRE_ID,
+        record.CODIGO,
+        record.NOMBRE,
+        record.ACTIVO,
+        record.ES_RECEPTOR,
+      ],
     );
     sendData(res, 201, mapRow(result.rows[0]));
   } catch (err) {
@@ -215,10 +245,18 @@ router.put('/:id', async (req, res) => {
        SET "PADRE_ID" = $1,
            "CODIGO" = $2,
            "NOMBRE" = $3,
-           "ACTIVO" = $4
-       WHERE "ID" = $5
+           "ACTIVO" = $4,
+           "ES_RECEPTOR" = $5
+       WHERE "ID" = $6
        RETURNING ${FIELDS}`,
-      [record.PADRE_ID, record.CODIGO, record.NOMBRE, record.ACTIVO, id],
+      [
+        record.PADRE_ID,
+        record.CODIGO,
+        record.NOMBRE,
+        record.ACTIVO,
+        record.ES_RECEPTOR,
+        id,
+      ],
     );
     const row = result.rows[0];
     if (!row) {

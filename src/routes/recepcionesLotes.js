@@ -152,6 +152,9 @@ function translate(err) {
     if (message.includes('no coincide')) {
       throw httpError(400, 'destino_no_coincide');
     }
+    if (message.includes('recepcion cerrada')) {
+      throw httpError(409, 'recepcion_cerrada');
+    }
     throw httpError(400, 'invalid_recepcion_lote');
   }
 

@@ -19,9 +19,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     focusedId: null,
     collapsed: new Set(),
     unidades: new Map(),
+    estatus: new Map(),
     cargoTab: 'lotes',
     filters: { lote: '', tipo: '', tipoRef: '', ref: '', prod: '' },
   };
+
+  const ESTATUS_ABIERTO = 1;
+  const ESTATUS_TRANSITO = 3;
 
   const treeNode = document.getElementById('exd-tree');
   const treeNav = document.getElementById('exd-tree-nav');
@@ -56,12 +60,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_id_lote: 'Lote inválido, con padre o no disponible.',
       invalid_id_expedicion: 'Expedición inválida.',
       lote_ya_embarcado: 'Ese lote ya está embarcado en otra expedición.',
-      expedicion_cerrada: 'La expedición está cerrada.',
+      expedicion_cerrada: 'La expedición no está abierta para embarque.',
       unidad_ya_abierta: 'Esa unidad ya tiene una expedición abierta.',
+      expedicion_no_finalizable: 'Solo se finaliza en tránsito (sin recepción abierta).',
+      expedicion_recepcion_abierta: 'Cierra las recepciones abiertas antes de finalizar.',
+      expedicion_carga_incompleta: 'Aún hay lotes sin recibir.',
       not_found: 'Registro no encontrado.',
       unauthorized: 'Sesión no válida.',
     };
     return messages[code] || 'No se pudo completar la operación.';
+  }
+
+  function estatusLabel(id) {
+    const row = state.estatus.get(Number(id));
+    return row ? row.NOMBRE : (id == null ? '—' : `#${id}`);
+  }
+
+  function isAbierta(row) {
+    return Number(row?.ID_ESTATUS) === ESTATUS_ABIERTO;
   }
 
   function sessionUsuario() {
@@ -371,7 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderCargoTables() {
-    const abierta = state.expedicion?.FECHA_CIERRE == null;
+    const abierta = isAbierta(state.expedicion);
     const rows = scopedLotes();
 
     if (state.cargoTab === 'productos') {
@@ -468,12 +484,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderHeader() {
     const row = state.expedicion;
-    const abierta = row.FECHA_CIERRE == null;
+    const abierta = isAbierta(row);
+    const enTransito = Number(row.ID_ESTATUS) === ESTATUS_TRANSITO;
     document.getElementById('exd-title').textContent = `Expedición #${row.ID}`;
     document.getElementById('exd-subtitle').textContent = unidadLabel(row.ID_UNIDAD);
     document.getElementById('exd-badges').innerHTML = `
       <span class="ui-badge ${abierta ? 'ui-badge-secondary' : 'ui-badge-outline'}">
-        ${abierta ? 'Abierta' : 'Cerrada'}
+        ${escapeHtml(estatusLabel(row.ID_ESTATUS))}
       </span>
     `;
     document.getElementById('exd-stat-creada').textContent = formatDate(row.CREADO_EN);
@@ -487,6 +504,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('exd-stat-ubicacion').textContent =
       ubicacionParts.length ? ubicacionParts.join(' · ') : '—';
     document.getElementById('exd-btn-cerrar').hidden = !abierta;
+    document.getElementById('exd-btn-finalizar').hidden = !enTransito;
     loteForm.classList.toggle('hidden', !abierta);
     document.getElementById('exd-lote-hint').classList.toggle('hidden', !abierta);
   }
@@ -544,8 +562,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadDisponibles() {
-    if (state.expedicion?.FECHA_CIERRE != null) {
-      fillSelect(loteSelect, [], 'Expedición cerrada');
+    if (!isAbierta(state.expedicion)) {
+      fillSelect(loteSelect, [], 'Expedición no abierta');
       loteSelect.disabled = true;
       return;
     }
@@ -596,11 +614,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadCatalogs() {
-    const unidades = await window.PackingApi.request('/unidades-transporte?items=100');
-    if (!unidades.ok) {
+    const [unidades, estatus] = await Promise.all([
+      window.PackingApi.request('/unidades-transporte?items=100'),
+      window.PackingApi.request('/expediciones-estatus?items=100'),
+    ]);
+    if (!unidades.ok || !estatus.ok) {
       throw new Error('catalogs');
     }
     state.unidades = new Map((unidades.data || []).map((row) => [row.ID, row]));
+    state.estatus = new Map((estatus.data || []).map((row) => [row.ID, row]));
   }
 
   function openEditForm() {
@@ -729,7 +751,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loteForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!state.expedicion || state.expedicion.FECHA_CIERRE != null) {
+    if (!isAbierta(state.expedicion)) {
       return;
     }
     showLoteError('');
@@ -769,7 +791,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('exd-btn-cerrar').addEventListener('click', async () => {
     const row = state.expedicion;
-    if (!row || row.FECHA_CIERRE != null) {
+    if (!isAbierta(row)) {
       return;
     }
     const result = await window.PackingApi.request(`/expediciones/${row.ID}`, {
@@ -786,7 +808,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.PackingToast.toast(mapError(result.error), 'error');
       return;
     }
-    window.PackingToast.toast('Expedición cerrada');
+    window.PackingToast.toast('Carga cerrada');
+    await loadCarga();
+  });
+
+  document.getElementById('exd-btn-finalizar').addEventListener('click', async () => {
+    const row = state.expedicion;
+    if (!row || Number(row.ID_ESTATUS) !== ESTATUS_TRANSITO) {
+      return;
+    }
+    const result = await window.PackingApi.request(`/expediciones/${row.ID}/finalizar`, {
+      method: 'POST',
+    });
+    if (!result.ok) {
+      window.PackingToast.toast(mapError(result.error), 'error');
+      return;
+    }
+    window.PackingToast.toast('Expedición finalizada');
     await loadCarga();
   });
 

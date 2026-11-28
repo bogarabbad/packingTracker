@@ -11,6 +11,7 @@ const FIELDS = [
   'ID',
   'ID_EXPEDICION',
   'UBICACION_ID',
+  'FECHA_CIERRE',
   'USUARIO_ID',
   'ID_ORIGEN_USUARIO',
   'CREADO_EN',
@@ -54,6 +55,23 @@ function parseAudit(body) {
   return { USUARIO_ID: usuarioId, ID_ORIGEN_USUARIO: idOrigenUsuario };
 }
 
+function optionalTimestamptz(value, error) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw httpError(400, error);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw httpError(400, error);
+  }
+
+  return date.toISOString();
+}
+
 function parseBody(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'invalid_body');
@@ -62,6 +80,7 @@ function parseBody(body) {
   return {
     ID_EXPEDICION: requiredInteger(body.ID_EXPEDICION, 'invalid_id_expedicion'),
     UBICACION_ID: requiredInteger(body.UBICACION_ID, 'invalid_ubicacion_id'),
+    FECHA_CIERRE: optionalTimestamptz(body.FECHA_CIERRE, 'invalid_fecha_cierre'),
     ...parseAudit(body),
   };
 }
@@ -75,6 +94,7 @@ function mapRow(row) {
     ID: Number(row.ID),
     ID_EXPEDICION: Number(row.ID_EXPEDICION),
     UBICACION_ID: Number(row.UBICACION_ID),
+    FECHA_CIERRE: row.FECHA_CIERRE,
     USUARIO_ID: mapNumber(row.USUARIO_ID),
     ID_ORIGEN_USUARIO: mapNumber(row.ID_ORIGEN_USUARIO),
     CREADO_EN: row.CREADO_EN,
@@ -85,6 +105,13 @@ function mapRow(row) {
 function translate(err) {
   if (err.publicError) {
     throw err;
+  }
+
+  if (err.code === '23505') {
+    if (err.constraint === 'RECEPCIONES_EXPEDICION_UBICACION_UQ') {
+      throw httpError(409, 'recepcion_ubicacion_duplicada');
+    }
+    throw httpError(409, 'duplicate');
   }
 
   if (err.code === '23503') {
@@ -115,6 +142,9 @@ function translate(err) {
           ? 'invalid_usuario_origen'
           : 'invalid_usuario_id',
       );
+    }
+    if (err.constraint === 'RECEPCIONES_FECHA_CIERRE_CHK') {
+      throw httpError(400, 'invalid_fecha_cierre');
     }
     const message = typeof err.message === 'string' ? err.message : '';
     if (message.includes('origen deben ir')) {
@@ -220,13 +250,15 @@ router.post('/', async (req, res) => {
     await requireUsuarioUbicacion(record.USUARIO_ID, record.ID_ORIGEN_USUARIO);
     const result = await pool.query(
       `INSERT INTO "RECEPCIONES" (
-         "ID_EXPEDICION", "UBICACION_ID", "USUARIO_ID", "ID_ORIGEN_USUARIO"
+         "ID_EXPEDICION", "UBICACION_ID", "FECHA_CIERRE",
+         "USUARIO_ID", "ID_ORIGEN_USUARIO"
        )
-       VALUES ($1, $2, $3, $4)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING ${FIELDS}`,
       [
         record.ID_EXPEDICION,
         record.UBICACION_ID,
+        record.FECHA_CIERRE,
         record.USUARIO_ID,
         record.ID_ORIGEN_USUARIO,
       ],
@@ -245,13 +277,15 @@ router.put('/:id', async (req, res) => {
       `UPDATE "RECEPCIONES"
        SET "ID_EXPEDICION" = $1,
            "UBICACION_ID" = $2,
-           "USUARIO_ID" = $3,
-           "ID_ORIGEN_USUARIO" = $4
-       WHERE "ID" = $5
+           "FECHA_CIERRE" = $3,
+           "USUARIO_ID" = $4,
+           "ID_ORIGEN_USUARIO" = $5
+       WHERE "ID" = $6
        RETURNING ${FIELDS}`,
       [
         record.ID_EXPEDICION,
         record.UBICACION_ID,
+        record.FECHA_CIERRE,
         record.USUARIO_ID,
         record.ID_ORIGEN_USUARIO,
         id,

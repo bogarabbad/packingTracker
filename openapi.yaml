@@ -144,11 +144,21 @@ tags:
       ubicación ORIGEN del lote. Sin ubicación responde `usuario_sin_ubicacion`.
       `GET /lotes/{id}/etiqueta.pdf` genera un PDF de etiqueta con el ID
       en código de barras Code128 (escaneable).
+  - name: Estatus de expediciones
+    description: |
+      Catálogo `EXPEDICIONES_ESTATUS`.
+      Semilla: ABIERTO, CERRADO, TRANSITO, RECEPCION, FINALIZADO.
   - name: Expediciones
     description: |
       Registro `EXPEDICIONES`.
-      Una unidad de transporte solo puede tener una expedición abierta
-      (`FECHA_CIERRE` nulo).
+      `ID_ESTATUS` es la denormalización del historial
+      `EXPEDICIONES_ESTATUS_HISTORIAL` (más reciente por `FECHA`, `ID`).
+      Transiciones automáticas: crear → ABIERTO; `FECHA_CIERRE` → CERRADO;
+      primera `UBICACION_SALIDA_ID` → TRANSITO; abrir recepción → RECEPCION;
+      cerrar la última recepción abierta → TRANSITO.
+      `POST /expediciones/{id}/finalizar` (en TRANSITO, sin recepción abierta)
+      → FINALIZADO si la carga está completa.
+      Una unidad solo puede tener una expedición en ABIERTO.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       El origen `1` es interno (`USUARIOS`). Cualquier otro origen es externo.
       En el alta el usuario interno debe tener `UBICACION_ID`
@@ -159,12 +169,14 @@ tags:
       Relaciona un lote con una expedición.
       Solo lotes sin `PADRE_ID` (sueltos) y que aún no estén embarcados.
       Un lote solo puede pertenecer a una expedición.
-      No se agrega ni se quita en una expedición cerrada.
+      No se agrega ni se quita si la expedición no está en ABIERTO.
   - name: Categorías de ubicación
     description: |
       Catálogo `UBICACIONES_CATEGORIAS`.
       `PADRE_ID` arma el árbol. `padre_id=raiz` lista las raíces.
       Una categoría no puede colgar de sí misma ni de un descendiente.
+      `ES_RECEPTOR` marca categorías que actúan como ubicación receptora padre
+      al validar recepciones de lotes con DESTINO hijo.
       ORIGEN, DESTINO y XDOCK no viven aquí: esos códigos son `LOTES_UBICACIONES_TIPOS`.
   - name: Ubicaciones
     description: |
@@ -172,34 +184,60 @@ tags:
       Cada fila exige `ID_CATEGORIA`. `PADRE_ID` arma el árbol.
       `padre_id=raiz` lista las raíces.
       Una ubicación no puede colgar de sí misma ni de un descendiente.
+      `GET /ubicaciones/{id}/padre-por-categoria` resuelve el ancestro inmediato
+      de la categoría pedida (o la misma ubicación si ya es de esa categoría
+      o no hay ancestro).
   - name: Tipos de ubicación de lote
     description: |
       Catálogo `LOTES_UBICACIONES_TIPOS`.
       ORIGEN, DESTINO y XDOCK nacen como semilla.
+      XDOCK es el paso intermedio (cross dock) en el historial de ubicaciones del lote.
   - name: Ubicaciones de lote
     description: |
       Registro `LOTES_UBICACIONES`.
       Une un lote, un tipo y una ubicación.
       Un lote tiene como mucho un DESTINO.
+      ORIGEN y DESTINO no repiten el trío lote+tipo+ubicación.
+      XDOCK es historial: puede haber varios renglones; el más reciente
+      (`CREADO_EN`, `ID`) es el último paso intermedio del lote.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       En el alta el usuario interno debe tener `UBICACION_ID`
       (`usuario_sin_ubicacion` si no).
   - name: Recepciones
     description: |
       Registro `RECEPCIONES`.
-      Une una expedición con la ubicación donde se recibe.
+      Una por par expedición + ubicación.
+      `FECHA_CIERRE` nulo = abierta; al fijarla se cierra.
+      Abrir (sin cierre) con la expedición en TRANSITO pasa a RECEPCION.
+      Cerrar la última abierta vuelve la expedición a TRANSITO.
       `USUARIO_ID` e `ID_ORIGEN_USUARIO` van juntos.
       En el alta el usuario interno debe tener `UBICACION_ID`
       (`usuario_sin_ubicacion` si no).
   - name: Lotes recibidos
     description: |
       Registro `RECEPCIONES_LOTES`.
-      Un lote suelto se recibe una sola vez, y solo si su DESTINO
-      es la ubicación de la recepción.
+      Un lote suelto se recibe una sola vez.
+      Solo en una recepción abierta (`FECHA_CIERRE` nulo).
+      Su DESTINO debe ser la ubicación de la recepción, o un hijo cuyo
+      ancestro receptor (categoría `ES_RECEPTOR`) sea esa recepción.
+      Si se recibe en ese padre receptor (no en el DESTINO mismo), la base
+      inserta además `LOTES_UBICACIONES` tipo XDOCK con la ubicación de la
+      recepción.
   - name: Unidades de transporte
     description: |
       Registro `UNIDADES_TRANSPORTE`.
+      `UBICACION_ID` es la ubicación actual (denormalizada): coincide con el
+      registro más reciente de `UNIDADES_TRANSPORTE_UBICACIONES` por `FECHA`, `ID`.
+      Al crear o reemplazar con una `UBICACION_ID` distinta a la actual se
+      agrega un renglón al historial y se sincroniza.
       `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` los asigna el servicio.
+  - name: Ubicaciones de unidad de transporte
+    description: |
+      Historial N:N `UNIDADES_TRANSPORTE_UBICACIONES`.
+      Cada renglón registra que una unidad estuvo en una ubicación en `FECHA`.
+      El más reciente (`FECHA` descendente, `ID` descendente) define
+      `UNIDADES_TRANSPORTE.UBICACION_ID`. Tras crear, reemplazar o eliminar se
+      vuelve a sincronizar esa columna.
   - name: Tipos de dispositivo
     description: |
       Catálogo `DISPOSITIVOS_TIPOS`.
@@ -1804,6 +1842,86 @@ paths:
           $ref: '#/components/responses/LoteEnUso'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /expediciones-estatus:
+    get:
+      tags: [Estatus de expediciones]
+      operationId: listExpedicionesEstatus
+      summary: Lista los estatus de expedición
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/Activo'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogoLista'
+        '400':
+          $ref: '#/components/responses/PaginacionInvalida'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Estatus de expediciones]
+      operationId: createExpedicionEstatus
+      summary: Crea un estatus de expedición
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '201':
+          $ref: '#/components/responses/CatalogoCreado'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones-estatus/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Estatus de expediciones]
+      operationId: getExpedicionEstatus
+      summary: Obtiene un estatus de expedición
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Estatus de expediciones]
+      operationId: updateExpedicionEstatus
+      summary: Reemplaza un estatus de expedición
+      requestBody:
+        $ref: '#/components/requestBodies/Catalogo'
+      responses:
+        '200':
+          $ref: '#/components/responses/Catalogo'
+        '400':
+          $ref: '#/components/responses/ErrorSolicitud'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Estatus de expediciones]
+      operationId: deleteExpedicionEstatus
+      summary: Elimina un estatus de expedición
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /expediciones:
     get:
       tags: [Expediciones]
@@ -1811,10 +1929,12 @@ paths:
       summary: Lista las expediciones
       description: |
         `q` busca en el `CODIGO` o el `NOMBRE` de la ubicación referenciada por `UBICACION_SALIDA_ID`.
+        `abierta=true` filtra `ID_ESTATUS = ABIERTO`.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Items'
         - $ref: '#/components/parameters/IdUnidad'
+        - $ref: '#/components/parameters/IdEstatus'
         - $ref: '#/components/parameters/Abierta'
         - $ref: '#/components/parameters/Q'
       responses:
@@ -1826,8 +1946,7 @@ paths:
                 $ref: '#/components/schemas/RespuestaExpedicionLista'
         '400':
           description: |
-            Paginación inválida, `id_unidad` inválido o `abierta` inválido.
-            `error.error` puede ser el de la paginación, `invalid_id_unidad` o `invalid_abierta`.
+            Paginación inválida, `id_unidad`, `id_estatus` o `abierta` inválidos.
           content:
             application/json:
               schema:
@@ -1839,8 +1958,10 @@ paths:
       operationId: createExpedicion
       summary: Crea una expedición
       description: |
-        Si `FECHA_CIERRE` se omite o va `null`, la expedición queda abierta.
-        No puede haber otra abierta para la misma unidad de transporte.
+        Nace en ABIERTO (historial). `ID_ESTATUS` no se envía.
+        Si además viene `FECHA_CIERRE` / `UBICACION_SALIDA_ID`, el trigger
+        avanza a CERRADO / TRANSITO según corresponda.
+        No puede haber otra en ABIERTO para la misma unidad.
         Exige usuario interno con `UBICACION_ID`; si no, `usuario_sin_ubicacion`.
       requestBody:
         $ref: '#/components/requestBodies/Expedicion'
@@ -1883,8 +2004,11 @@ paths:
       summary: Reemplaza una expedición
       description: |
         Reemplaza los datos editables. Si un dato opcional no viene, se guarda `null`.
+        `ID_ESTATUS` no se acepta: lo mueven los eventos / historial.
+        Poner `FECHA_CIERRE` (desde null) pasa a CERRADO si estaba ABIERTO.
+        Fijar `UBICACION_SALIDA_ID` (desde null) pasa a TRANSITO si estaba CERRADO.
+        Vaciar `FECHA_CIERRE` no revierte el estatus.
         `CREADO_EN` no cambia. `ACTUALIZADO_EN` pasa a ser el momento del reemplazo.
-        Poner `FECHA_CIERRE` cierra la expedición. Vaciarlo la reabre si la unidad no tiene otra abierta.
       requestBody:
         $ref: '#/components/requestBodies/Expedicion'
       responses:
@@ -1916,6 +2040,39 @@ paths:
           $ref: '#/components/responses/NoEncontrado'
         '409':
           $ref: '#/components/responses/ExpedicionEnUso'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /expediciones/{id}/finalizar:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Expediciones]
+      operationId: finalizarExpedicion
+      summary: Marca la expedición como FINALIZADO
+      description: |
+        Requiere `ID_ESTATUS = TRANSITO`, ninguna recepción abierta y que
+        todos los lotes de `EXPEDICIONES_LOTES` tengan `RECEPCIONES_LOTES`
+        en alguna recepción de esta expedición. Inserta historial FINALIZADO.
+      responses:
+        '200':
+          description: Expedición finalizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExpedicion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: |
+            `expedicion_no_finalizable` si no está en TRANSITO.
+            `expedicion_recepcion_abierta` si hay recepción sin `FECHA_CIERRE`.
+            `expedicion_carga_incompleta` si faltan lotes por recibir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /expediciones/{id}/carga:
@@ -1974,7 +2131,7 @@ paths:
       summary: Embarca un lote en una expedición
       description: |
         El lote debe ser suelto (`PADRE_ID` nulo) y no estar embarcado.
-        La expedición debe estar abierta.
+        La expedición debe estar en ABIERTO.
       requestBody:
         $ref: '#/components/requestBodies/ExpedicionLote'
       responses:
@@ -2138,6 +2295,7 @@ paths:
         - $ref: '#/components/parameters/Q'
         - $ref: '#/components/parameters/IdTipo'
         - $ref: '#/components/parameters/IdEstatus'
+        - $ref: '#/components/parameters/UbicacionId'
         - $ref: '#/components/parameters/Activo'
       responses:
         '200':
@@ -2154,6 +2312,9 @@ paths:
       tags: [Unidades de transporte]
       operationId: createUnidadTransporte
       summary: Crea una unidad de transporte
+      description: |
+        Si `UBICACION_ID` viene con valor, se inserta el primer renglón del
+        historial y `UBICACION_ID` de la unidad queda sincronizada.
       requestBody:
         $ref: '#/components/requestBodies/UnidadTransporte'
       responses:
@@ -2196,6 +2357,9 @@ paths:
       description: |
         Reemplaza los datos editables. Si `ACTIVO` no viene, se guarda `true`.
         Si un dato opcional no viene, se guarda `null`.
+        Si `UBICACION_ID` viene con un valor distinto al actual, se agrega
+        historial y se sincroniza. Si viene `null`, no se borra el historial:
+        la ubicación actual sigue siendo la del renglón más reciente.
         `ES_SEMILLA` y `CREADO_EN` no cambian. `ACTUALIZADO_EN` pasa a ser el momento del reemplazo.
       requestBody:
         $ref: '#/components/requestBodies/UnidadTransporte'
@@ -2229,6 +2393,112 @@ paths:
           $ref: '#/components/responses/ConflictoEliminacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
+  /unidades-transporte-ubicaciones:
+    get:
+      tags: [Ubicaciones de unidad de transporte]
+      operationId: listUnidadesTransporteUbicaciones
+      summary: Lista el historial de ubicaciones de unidades
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Items'
+        - $ref: '#/components/parameters/IdUnidad'
+        - $ref: '#/components/parameters/UbicacionId'
+      responses:
+        '200':
+          description: Historial ordenado por `FECHA` descendente, luego `ID` descendente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadTransporteUbicacionLista'
+        '400':
+          description: Paginación, `id_unidad` o `ubicacion_id` inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [Ubicaciones de unidad de transporte]
+      operationId: createUnidadTransporteUbicacion
+      summary: Registra una ubicación en el historial de una unidad
+      description: |
+        Si `FECHA` se omite, la base usa `now()`. Tras el alta se sincroniza
+        `UNIDADES_TRANSPORTE.UBICACION_ID` con el renglón más reciente.
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadTransporteUbicacion'
+      responses:
+        '201':
+          description: Historial creado. `ES_SEMILLA` queda en `false`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadTransporteUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorUnidadTransporteUbicacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /unidades-transporte-ubicaciones/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Ubicaciones de unidad de transporte]
+      operationId: getUnidadTransporteUbicacion
+      summary: Obtiene un renglón del historial
+      responses:
+        '200':
+          description: Renglón del historial.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadTransporteUbicacion'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [Ubicaciones de unidad de transporte]
+      operationId: updateUnidadTransporteUbicacion
+      summary: Reemplaza un renglón del historial
+      description: |
+        Si `FECHA` se omite o es `null`, se guarda el momento del reemplazo.
+        Tras el cambio se sincroniza la unidad afectada (y la anterior si
+        cambió `ID_UNIDAD`).
+      requestBody:
+        $ref: '#/components/requestBodies/UnidadTransporteUbicacion'
+      responses:
+        '200':
+          description: Historial actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUnidadTransporteUbicacion'
+        '400':
+          $ref: '#/components/responses/ErrorUnidadTransporteUbicacion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [Ubicaciones de unidad de transporte]
+      operationId: deleteUnidadTransporteUbicacion
+      summary: Elimina un renglón del historial
+      description: |
+        Tras eliminar se sincroniza `UNIDADES_TRANSPORTE.UBICACION_ID` de la
+        unidad. Si no quedan renglones, esa columna queda en `null`.
+      responses:
+        '200':
+          $ref: '#/components/responses/Eliminado'
+        '400':
+          $ref: '#/components/responses/IdInvalido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoEliminacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
   /ubicaciones-categorias:
     get:
       tags: [Categorías de ubicación]
@@ -2239,6 +2509,7 @@ paths:
         - $ref: '#/components/parameters/Items'
         - $ref: '#/components/parameters/Q'
         - $ref: '#/components/parameters/Activo'
+        - $ref: '#/components/parameters/EsReceptor'
         - $ref: '#/components/parameters/PadreIdArbol'
       responses:
         '200':
@@ -2376,6 +2647,46 @@ paths:
           $ref: '#/components/responses/ErrorUbicacion'
         '409':
           $ref: '#/components/responses/CodigoDuplicado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+  /ubicaciones/{id}/padre-por-categoria:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - name: id_categoria
+        in: query
+        required: true
+        description: |
+          Categoría objetivo (`UBICACIONES_CATEGORIAS.ID`).
+          Entero positivo sin ceros a la izquierda.
+        schema:
+          type: string
+          pattern: '^[1-9]\d*$'
+    get:
+      tags: [Ubicaciones]
+      operationId: getUbicacionPadrePorCategoria
+      summary: Resuelve el ancestro de una categoría
+      description: |
+        Sube por `PADRE_ID` hasta el ancestro más inmediato con
+        `ID_CATEGORIA = id_categoria`.
+        Si la ubicación ya es de esa categoría, o no hay ancestro de esa
+        categoría, responde la misma ubicación.
+      responses:
+        '200':
+          description: Ubicación resuelta (padre o la misma).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaUbicacion'
+        '400':
+          description: |
+            `id` o `id_categoria` inválidos.
+            `error.error` puede ser `invalid_id` o `invalid_id_categoria`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /ubicaciones/{id}:
@@ -2558,7 +2869,8 @@ paths:
           $ref: '#/components/responses/ErrorLoteUbicacion'
         '409':
           description: |
-            `duplicate` si el trío lote, tipo y ubicación ya existe.
+            `duplicate` si el trío lote, tipo y ubicación ya existe para
+            ORIGEN o DESTINO (XDOCK no tiene esa unicidad).
             `destino_ya_definido` si el lote ya tiene un DESTINO.
           content:
             application/json:
@@ -2602,7 +2914,8 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '409':
-          description: '`duplicate` o `destino_ya_definido`.'
+          description: |
+            `duplicate` (ORIGEN/DESTINO) o `destino_ya_definido`.
           content:
             application/json:
               schema:
@@ -2673,6 +2986,8 @@ paths:
       operationId: createRecepcion
       summary: Crea una recepción
       description: |
+        Una por expedición + ubicación. Sin `FECHA_CIERRE` queda abierta y,
+        si la expedición está en TRANSITO, pasa a RECEPCION.
         Exige usuario interno con `UBICACION_ID`; si no, `usuario_sin_ubicacion`.
       requestBody:
         $ref: '#/components/requestBodies/Recepcion'
@@ -2684,6 +2999,12 @@ paths:
                 $ref: '#/components/schemas/RespuestaRecepcion'
         '400':
           $ref: '#/components/responses/ErrorRecepcion'
+        '409':
+          description: '`recepcion_ubicacion_duplicada` si ya existe ese par.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '500':
           $ref: '#/components/responses/ErrorInterno'
   /recepciones/{id}:
@@ -2709,6 +3030,9 @@ paths:
       tags: [Recepciones]
       operationId: updateRecepcion
       summary: Reemplaza una recepción
+      description: |
+        Fijar `FECHA_CIERRE` cierra la recepción. Si era la última abierta,
+        la expedición vuelve a TRANSITO.
       requestBody:
         $ref: '#/components/requestBodies/Recepcion'
       responses:
@@ -2811,10 +3135,17 @@ paths:
       tags: [Lotes recibidos]
       operationId: createRecepcionLote
       summary: Recibe un lote
+      description: |
+        Valida DESTINO vs ubicación de la recepción (o ancestro `ES_RECEPTOR`).
+        Si la recepción es ese padre receptor y no el DESTINO mismo, la base
+        crea además `LOTES_UBICACIONES` tipo XDOCK con esa ubicación.
       requestBody:
         $ref: '#/components/requestBodies/RecepcionLote'
       responses:
         '201':
+          description: |
+            Lote recibido. Si aplicó cross dock, ya existe el renglón XDOCK
+            correspondiente (consultar `GET /lotes-ubicaciones`).
           content:
             application/json:
               schema:
@@ -3412,6 +3743,14 @@ components:
       schema:
         type: string
         enum: ['true', 'false', '1', '0']
+    EsReceptor:
+      name: es_receptor
+      in: query
+      required: false
+      description: Filtra por `ES_RECEPTOR`. `true`/`1` o `false`/`0`.
+      schema:
+        type: string
+        enum: ['true', 'false', '1', '0']
     UbicacionId:
       name: ubicacion_id
       in: query
@@ -3465,8 +3804,8 @@ components:
       in: query
       required: false
       description: |
-        Filtra por estado. `true` o `1` = sin `FECHA_CIERRE`.
-        `false` o `0` = con `FECHA_CIERRE`.
+        Filtra por `ID_ESTATUS`. `true` o `1` = ABIERTO.
+        `false` o `0` = cualquier otro estatus.
       schema:
         type: string
         enum: ['true', 'false', '1', '0']
@@ -3741,6 +4080,7 @@ components:
       description: |
         `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
         Un texto opcional vacío no es válido. Omitirlo guarda `null`.
+        `UBICACION_ID` opcional: si viene distinta a la actual, se agrega historial.
       content:
         application/json:
           schema:
@@ -3757,7 +4097,21 @@ components:
             CAPACIDAD_CARGA_KG: 20000
             CAPACIDAD_VOLUMEN_M3: 80
             ID_ESTATUS: 1
+            UBICACION_ID: 1
             ACTIVO: true
+    UnidadTransporteUbicacion:
+      required: true
+      description: |
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+        `FECHA` omitida o `null` en el alta usa `now()`; en el reemplazo usa el momento del cambio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnidadTransporteUbicacionEntrada'
+          example:
+            ID_UNIDAD: 1
+            UBICACION_ID: 2
+            FECHA: '2026-11-28T18:00:00.000Z'
     UbicacionCategoria:
       required: true
       content:
@@ -3769,6 +4123,7 @@ components:
             CODIGO: nave
             NOMBRE: Nave
             ACTIVO: true
+            ES_RECEPTOR: false
     DispositivoTipo:
       required: true
       content:
@@ -4229,7 +4584,7 @@ components:
                 error:
                   error: invalid_fecha_cierre
     UnidadExpedicionAbierta:
-      description: La unidad de transporte ya tiene una expedición abierta.
+      description: La unidad de transporte ya tiene una expedición en ABIERTO.
       content:
         application/json:
           schema:
@@ -4382,8 +4737,8 @@ components:
                   error: invalid_codigo
     ErrorUnidad:
       description: |
-        El cuerpo no es válido o el tipo, el estatus o un límite de la unidad no se cumplen.
-        `invalid_id_tipo` e `invalid_id_estatus` también responden cuando ese catálogo no existe.
+        El cuerpo no es válido o el tipo, el estatus, la ubicación o un límite de la unidad no se cumplen.
+        `invalid_id_tipo`, `invalid_id_estatus` e `invalid_ubicacion_id` también responden cuando esa fila no existe.
         `invalid_anio` cuando el año no está entre 1980 y 2100.
         Las capacidades, si vienen, son números mayores o iguales a cero y de hasta `9999999999.99`.
       content:
@@ -4403,12 +4758,46 @@ components:
                 _metadata: {}
                 error:
                   error: invalid_id_tipo
+            ubicacion:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_ubicacion_id
             anio:
               value:
                 data: null
                 _metadata: {}
                 error:
                   error: invalid_anio
+    ErrorUnidadTransporteUbicacion:
+      description: |
+        El cuerpo no es válido o la unidad o la ubicación no existen.
+        `error.error` puede ser `invalid_body`, `invalid_id_unidad`,
+        `invalid_ubicacion_id` o `invalid_fecha`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            unidad:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_id_unidad
+            ubicacion:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_ubicacion_id
+            fecha:
+              value:
+                data: null
+                _metadata: {}
+                error:
+                  error: invalid_fecha
     UnidadDuplicada:
       description: |
         Ya existe otra unidad con el mismo valor.
@@ -4435,7 +4824,7 @@ components:
       description: |
         Cuerpo inválido, padre inexistente o ciclo en el árbol.
         `error.error` puede ser `invalid_body`, `invalid_codigo`, `invalid_nombre`,
-        `invalid_activo`, `invalid_padre_id` o `ciclo_padre`.
+        `invalid_activo`, `invalid_es_receptor`, `invalid_padre_id` o `ciclo_padre`.
       content:
         application/json:
           schema:
@@ -4462,8 +4851,11 @@ components:
     ErrorRecepcion:
       description: |
         La expedición, la ubicación o el usuario no son válidos.
-        `error.error` puede ser `invalid_body`, `invalid_id_expedicion`,
-        `invalid_ubicacion_id`, `invalid_usuario_id`, `invalid_id_origen_usuario`,
+        `invalid_fecha_cierre` si el cierre no es válido.
+        `recepcion_ubicacion_duplicada` (409) si ya hay recepción para ese
+        par expedición + ubicación.
+        También `invalid_body`, `invalid_id_expedicion`, `invalid_ubicacion_id`,
+        `invalid_usuario_id`, `invalid_id_origen_usuario`,
         `invalid_usuario_origen`, `usuario_sin_ubicacion` o `invalid_recepcion`.
       content:
         application/json:
@@ -4472,8 +4864,10 @@ components:
     ErrorRecepcionLote:
       description: |
         El lote no se puede recibir.
+        `recepcion_cerrada` (409) si la recepción ya tiene `FECHA_CIERRE`.
         `sin_destino` si no tiene DESTINO.
-        `destino_no_coincide` si el DESTINO no es la ubicación de la recepción.
+        `destino_no_coincide` si el DESTINO no es la ubicación de la recepción
+        ni un hijo cuyo ancestro de categoría receptora (`ES_RECEPTOR`) sea esa recepción.
         `invalid_id_lote` si el lote tiene padre o no existe.
         `invalid_observaciones` si el texto queda vacío.
       content:
@@ -4914,6 +5308,24 @@ components:
                 $ref: '#/components/schemas/UnidadTransporte'
             _metadata:
               $ref: '#/components/schemas/MetadataPaginacion'
+    RespuestaUnidadTransporteUbicacion:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UnidadTransporteUbicacion'
+    RespuestaUnidadTransporteUbicacionLista:
+      allOf:
+        - $ref: '#/components/schemas/Sobre'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UnidadTransporteUbicacion'
+            _metadata:
+              $ref: '#/components/schemas/MetadataPaginacion'
     RespuestaVacia:
       allOf:
         - $ref: '#/components/schemas/Sobre'
@@ -5120,6 +5532,7 @@ components:
       required:
         - ID
         - ID_UNIDAD
+        - ID_ESTATUS
         - FECHA_CIERRE
         - ID_UBICACION_SALIDA
         - UBICACION_SALIDA_ID
@@ -5136,11 +5549,20 @@ components:
           type: integer
           minimum: 1
           description: Referencia a `UNIDADES_TRANSPORTE`.
+        ID_ESTATUS:
+          type: integer
+          minimum: 1
+          readOnly: true
+          description: |
+            Referencia a `EXPEDICIONES_ESTATUS`. Coincide con el renglón más
+            reciente de `EXPEDICIONES_ESTATUS_HISTORIAL`.
         FECHA_CIERRE:
           type: string
           format: date-time
           nullable: true
-          description: Nulo mientras la expedición está abierta. Debe ser posterior o igual a `CREADO_EN`.
+          description: |
+            Marca de fin de carga. Al fijarla (desde null) en ABIERTO se registra CERRADO.
+            Debe ser posterior o igual a `CREADO_EN`.
         ID_UBICACION_SALIDA:
           type: integer
           nullable: true
@@ -5150,7 +5572,8 @@ components:
           type: integer
           nullable: true
           minimum: 1
-          description: Referencia a `UBICACIONES`. Nulo si la expedición no indica ubicación de salida.
+          description: |
+            Referencia a `UBICACIONES`. Al fijarla (desde null) en CERRADO se registra TRANSITO.
         USUARIO_ID:
           type: integer
           nullable: true
@@ -5202,7 +5625,7 @@ components:
           minimum: 1
       description: |
         En el reemplazo, los opcionales omitidos se guardan como `null`.
-        `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
+        `ID_ESTATUS`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     ExpedicionLote:
       type: object
       required:
@@ -6000,6 +6423,7 @@ components:
         - CAPACIDAD_CARGA_KG
         - CAPACIDAD_VOLUMEN_M3
         - ID_ESTATUS
+        - UBICACION_ID
         - ACTIVO
         - ES_SEMILLA
         - CREADO_EN
@@ -6054,6 +6478,13 @@ components:
           type: integer
           minimum: 1
           description: Referencia a `UNIDADES_ESTATUS`.
+        UBICACION_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            Ubicación actual. Coincide con el renglón más reciente de
+            `UNIDADES_TRANSPORTE_UBICACIONES` (`FECHA`, `ID`).
         ACTIVO:
           type: boolean
         ES_SEMILLA:
@@ -6119,13 +6550,81 @@ components:
         ID_ESTATUS:
           type: integer
           minimum: 1
+        UBICACION_ID:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            Si viene distinta a la actual, se agrega historial y se sincroniza.
+            `null` no borra el historial.
         ACTIVO:
           type: boolean
           default: true
           description: Si se omite, el servicio guarda `true`.
       description: |
         `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
-        En el reemplazo, cada campo opcional omitido se guarda como `null`.
+        En el reemplazo, cada campo opcional omitido se guarda como `null`
+        (salvo `UBICACION_ID`, que no limpia el historial).
+    UnidadTransporteUbicacion:
+      type: object
+      required:
+        - ID
+        - ID_UNIDAD
+        - UBICACION_ID
+        - FECHA
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
+      properties:
+        ID:
+          type: integer
+          minimum: 1
+          readOnly: true
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+          description: Referencia a `UNIDADES_TRANSPORTE`.
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+          description: Referencia a `UBICACIONES`.
+        FECHA:
+          type: string
+          format: date-time
+          description: Momento en que la unidad estuvo o está en esa ubicación.
+        ES_SEMILLA:
+          type: boolean
+          readOnly: true
+          description: |
+            `true` si el registro nació en `seed.sql`.
+            Ese registro se puede modificar y no se puede eliminar.
+        CREADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+        ACTUALIZADO_EN:
+          type: string
+          format: date-time
+          readOnly: true
+    UnidadTransporteUbicacionEntrada:
+      type: object
+      required: [ID_UNIDAD, UBICACION_ID]
+      properties:
+        ID_UNIDAD:
+          type: integer
+          minimum: 1
+        UBICACION_ID:
+          type: integer
+          minimum: 1
+        FECHA:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            En el alta, omitida o `null` usa `now()`.
+            En el reemplazo, omitida o `null` usa el momento del cambio.
+      description: |
+        `ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.
     Error:
       type: object
       required: [error]
@@ -6137,7 +6636,16 @@ components:
           description: Presente solo cuando la ruta no existe.
     UbicacionCategoria:
       type: object
-      required: [ID, PADRE_ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
+      required:
+        - ID
+        - PADRE_ID
+        - CODIGO
+        - NOMBRE
+        - ACTIVO
+        - ES_RECEPTOR
+        - ES_SEMILLA
+        - CREADO_EN
+        - ACTUALIZADO_EN
       properties:
         ID:
           type: integer
@@ -6155,6 +6663,11 @@ components:
           minLength: 1
         ACTIVO:
           type: boolean
+        ES_RECEPTOR:
+          type: boolean
+          description: |
+            Si es true, las ubicaciones de esta categoría pueden recibir lotes
+            cuyo DESTINO sea un descendiente en el árbol.
         ES_SEMILLA:
           type: boolean
           readOnly: true
@@ -6183,6 +6696,10 @@ components:
         ACTIVO:
           type: boolean
           default: true
+        ES_RECEPTOR:
+          type: boolean
+          default: false
+      description: '`ES_SEMILLA`, `CREADO_EN` y `ACTUALIZADO_EN` se ignoran.'
     Ubicacion:
       type: object
       required: [ID, ID_CATEGORIA, PADRE_ID, CODIGO, NOMBRE, ACTIVO, ES_SEMILLA, CREADO_EN, ACTUALIZADO_EN]
@@ -6296,7 +6813,15 @@ components:
           minimum: 1
     Recepcion:
       type: object
-      required: [ID, ID_EXPEDICION, UBICACION_ID, USUARIO_ID, ID_ORIGEN_USUARIO, CREADO_EN, ACTUALIZADO_EN]
+      required:
+        - ID
+        - ID_EXPEDICION
+        - UBICACION_ID
+        - FECHA_CIERRE
+        - USUARIO_ID
+        - ID_ORIGEN_USUARIO
+        - CREADO_EN
+        - ACTUALIZADO_EN
       properties:
         ID:
           type: integer
@@ -6308,6 +6833,13 @@ components:
         UBICACION_ID:
           type: integer
           minimum: 1
+        FECHA_CIERRE:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Nulo mientras la recepción está abierta. Al fijarla se cierra.
+            Debe ser posterior o igual a `CREADO_EN`.
         USUARIO_ID:
           type: integer
           nullable: true
@@ -6334,6 +6866,11 @@ components:
         UBICACION_ID:
           type: integer
           minimum: 1
+        FECHA_CIERRE:
+          type: string
+          format: date-time
+          nullable: true
+          description: Omitida o `null` deja la recepción abierta.
         USUARIO_ID:
           type: integer
           nullable: true

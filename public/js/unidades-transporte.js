@@ -9,8 +9,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     total: 0,
     tipos: new Map(),
     estatus: new Map(),
+    ubicaciones: new Map(),
     deleteId: null,
-    filters: { q: '', id_tipo: '', id_estatus: '', activo: '' },
+    filters: { q: '', id_tipo: '', id_estatus: '', ubicacion_id: '', activo: '' },
   };
 
   const statusNode = document.getElementById('ut-status');
@@ -25,6 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const formTitle = document.getElementById('ut-form-title');
   const tipoSelect = document.getElementById('ut-id-tipo');
   const estatusSelect = document.getElementById('ut-id-estatus');
+  const ubicacionSelect = document.getElementById('ut-ubicacion');
+  const filterUbicacion = document.getElementById('ut-filter-ubicacion');
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -64,6 +67,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function ubicacionLabel(id) {
+    if (id == null) {
+      return '—';
+    }
+    const ubicacion = state.ubicaciones.get(Number(id));
+    if (!ubicacion) {
+      return `#${id}`;
+    }
+    return `${ubicacion.CODIGO} · ${ubicacion.NOMBRE}`;
+  }
+
+  function fillUbicacionOptions(select, { blankLabel, onlyActivos }) {
+    const previous = select.value;
+    let rows = [...state.ubicaciones.values()];
+    if (onlyActivos) {
+      rows = rows.filter((row) => row.ACTIVO);
+    }
+    rows.sort((a, b) => a.CODIGO.localeCompare(b.CODIGO, 'es'));
+
+    select.innerHTML = '';
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = blankLabel;
+    select.appendChild(blank);
+
+    rows.forEach((row) => {
+      const option = document.createElement('option');
+      option.value = String(row.ID);
+      option.textContent = `${row.CODIGO} · ${row.NOMBRE}`;
+      select.appendChild(option);
+    });
+
+    if (previous && [...select.options].some((option) => option.value === previous)) {
+      select.value = previous;
+    }
+  }
+
+  function refreshUbicacionSelects() {
+    fillUbicacionOptions(ubicacionSelect, {
+      blankLabel: 'Sin ubicación',
+      onlyActivos: true,
+    });
+    fillUbicacionOptions(filterUbicacion, {
+      blankLabel: 'Todas',
+      onlyActivos: false,
+    });
+    if (state.filters.ubicacion_id) {
+      filterUbicacion.value = state.filters.ubicacion_id;
+    }
+  }
+
   function mapError(code) {
     const messages = {
       duplicate_codigo: 'Ya existe una unidad con ese código.',
@@ -74,6 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_placas: 'Placas inválidas.',
       invalid_id_tipo: 'Tipo inválido.',
       invalid_id_estatus: 'Estatus inválido.',
+      invalid_ubicacion_id: 'Ubicación inválida.',
       invalid_anio: 'Año inválido (1980–2100).',
       invalid_capacidad_carga_kg: 'Capacidad en kg inválida.',
       invalid_capacidad_volumen_m3: 'Capacidad en m³ inválida.',
@@ -95,11 +150,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function readForm() {
+    const ubicacionRaw = document.getElementById('ut-ubicacion').value;
     return {
       CODIGO: document.getElementById('ut-codigo').value.trim(),
       PLACAS: document.getElementById('ut-placas').value.trim(),
       ID_TIPO: Number(document.getElementById('ut-id-tipo').value),
       ID_ESTATUS: Number(document.getElementById('ut-id-estatus').value),
+      UBICACION_ID: ubicacionRaw === '' ? null : Number(ubicacionRaw),
       NUMERO_ECONOMICO: optionalText(document.getElementById('ut-numero-economico').value),
       NUMERO_SERIE: optionalText(document.getElementById('ut-numero-serie').value),
       MARCA: optionalText(document.getElementById('ut-marca').value),
@@ -117,6 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ut-activo').checked = true;
     document.getElementById('ut-id').value = row ? String(row.ID) : '';
     formTitle.textContent = row ? 'Editar unidad' : 'Nueva unidad';
+    refreshUbicacionSelects();
 
     if (row) {
       document.getElementById('ut-codigo').value = row.CODIGO || '';
@@ -131,6 +189,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('ut-capacidad-kg').value = row.CAPACIDAD_CARGA_KG == null ? '' : String(row.CAPACIDAD_CARGA_KG);
       document.getElementById('ut-capacidad-m3').value = row.CAPACIDAD_VOLUMEN_M3 == null ? '' : String(row.CAPACIDAD_VOLUMEN_M3);
       document.getElementById('ut-activo').checked = Boolean(row.ACTIVO);
+      if (row.UBICACION_ID != null) {
+        const id = String(row.UBICACION_ID);
+        if (![...ubicacionSelect.options].some((option) => option.value === id)) {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = ubicacionLabel(row.UBICACION_ID);
+          ubicacionSelect.appendChild(option);
+        }
+        ubicacionSelect.value = id;
+      } else {
+        ubicacionSelect.value = '';
+      }
     }
 
     formDialog.showModal();
@@ -144,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRows(rows) {
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-muted-foreground">Sin registros.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-muted-foreground">Sin registros.</td></tr>';
       return;
     }
 
@@ -158,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <td>${escapeHtml(row.PLACAS)}</td>
           <td>${escapeHtml(tipo)}</td>
           <td>${escapeHtml(estatus)}</td>
+          <td>${escapeHtml(ubicacionLabel(row.UBICACION_ID))}</td>
           <td>${escapeHtml(row.MARCA || '—')}</td>
           <td>${escapeHtml(row.MODELO || '—')}</td>
           <td>
@@ -186,25 +257,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadCatalogs() {
-    const [tipos, estatus] = await Promise.all([
+    const [tipos, estatus, ubicaciones] = await Promise.all([
       window.PackingApi.request('/unidades-tipos?items=100'),
       window.PackingApi.request('/unidades-estatus?items=100'),
+      window.PackingApi.request('/ubicaciones?items=100'),
     ]);
 
-    if (!tipos.ok || !estatus.ok) {
+    if (!tipos.ok || !estatus.ok || !ubicaciones.ok) {
       throw new Error('catalogs');
     }
 
     const tipoRows = Array.isArray(tipos.data) ? tipos.data : [];
     const estatusRows = Array.isArray(estatus.data) ? estatus.data : [];
+    const ubicacionRows = Array.isArray(ubicaciones.data) ? ubicaciones.data : [];
 
     state.tipos = new Map(tipoRows.map((row) => [row.ID, row]));
     state.estatus = new Map(estatusRows.map((row) => [row.ID, row]));
+    state.ubicaciones = new Map(ubicacionRows.map((row) => [row.ID, row]));
 
     fillSelect(tipoSelect, tipoRows, 'Selecciona un tipo');
     fillSelect(estatusSelect, estatusRows, 'Selecciona un estatus');
     fillSelect(document.getElementById('ut-filter-tipo'), tipoRows, 'Todos');
     fillSelect(document.getElementById('ut-filter-estatus'), estatusRows, 'Todos');
+    refreshUbicacionSelects();
   }
 
   function buildListUrl() {
@@ -221,6 +296,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.filters.id_estatus) {
       params.set('id_estatus', state.filters.id_estatus);
     }
+    if (state.filters.ubicacion_id) {
+      params.set('ubicacion_id', state.filters.ubicacion_id);
+    }
     if (state.filters.activo) {
       params.set('activo', state.filters.activo);
     }
@@ -231,6 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.filters.q = document.getElementById('ut-filter-q').value.trim();
     state.filters.id_tipo = document.getElementById('ut-filter-tipo').value;
     state.filters.id_estatus = document.getElementById('ut-filter-estatus').value;
+    state.filters.ubicacion_id = document.getElementById('ut-filter-ubicacion').value;
     state.filters.activo = document.getElementById('ut-filter-activo').value;
   }
 
@@ -240,7 +319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
-      tbody.innerHTML = '<tr><td colspan="8" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
       window.PackingToast.toast(mapError(result.error), 'error');
       if (result.status === 401) {
         window.location.replace('/login');
@@ -267,8 +346,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('ut-filter-q').value = '';
     document.getElementById('ut-filter-tipo').value = '';
     document.getElementById('ut-filter-estatus').value = '';
+    document.getElementById('ut-filter-ubicacion').value = '';
     document.getElementById('ut-filter-activo').value = '';
-    state.filters = { q: '', id_tipo: '', id_estatus: '', activo: '' };
+    state.filters = { q: '', id_tipo: '', id_estatus: '', ubicacion_id: '', activo: '' };
     state.page = 1;
     await loadList();
   });

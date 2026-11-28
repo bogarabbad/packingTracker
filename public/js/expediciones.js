@@ -9,7 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     total: 0,
     deleteId: null,
     unidades: new Map(),
-    filters: { id_unidad: '', abierta: '', q: '' },
+    estatus: new Map(),
+    filters: { id_unidad: '', id_estatus: '', q: '' },
   };
 
   const statusNode = document.getElementById('ex-status');
@@ -47,11 +48,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       invalid_expedicion: 'Datos de expedición inválidos.',
       invalid_abierta: 'Filtro de abierta inválido.',
       unidad_ya_abierta: 'Esa unidad ya tiene una expedición abierta.',
+      invalid_id_estatus: 'Estatus inválido.',
       record_in_use: 'La expedición tiene lotes y no se puede eliminar.',
       not_found: 'Registro no encontrado.',
       unauthorized: 'Sesión no válida.',
     };
     return messages[code] || 'No se pudo completar la operación.';
+  }
+
+  function estatusLabel(id) {
+    const row = state.estatus.get(Number(id));
+    return row ? row.NOMBRE : (id == null ? '—' : `#${id}`);
   }
 
   function sessionUsuario() {
@@ -174,14 +181,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     tbody.innerHTML = rows.map((row) => {
-      const abierta = row.FECHA_CIERRE == null;
+      const abierta = Number(row.ID_ESTATUS) === 1;
       return `
         <tr data-id="${row.ID}">
           <td>${row.ID}</td>
           <td>${escapeHtml(unidadLabel(row.ID_UNIDAD))}</td>
           <td>
             <span class="ui-badge ${abierta ? 'ui-badge-secondary' : 'ui-badge-outline'}">
-              ${abierta ? 'Abierta' : 'Cerrada'}
+              ${escapeHtml(estatusLabel(row.ID_ESTATUS))}
             </span>
           </td>
           <td>${escapeHtml(formatDate(row.CREADO_EN))}</td>
@@ -208,16 +215,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadCatalogs() {
-    const unidades = await window.PackingApi.request('/unidades-transporte?items=100');
-    if (!unidades.ok) {
+    const [unidades, estatus] = await Promise.all([
+      window.PackingApi.request('/unidades-transporte?items=100'),
+      window.PackingApi.request('/expediciones-estatus?items=100'),
+    ]);
+    if (!unidades.ok || !estatus.ok) {
       throw new Error('catalogs');
     }
     state.unidades = new Map((unidades.data || []).map((row) => [row.ID, row]));
+    state.estatus = new Map((estatus.data || []).map((row) => [row.ID, row]));
     fillSelect(
       document.getElementById('ex-filter-unidad'),
       [...state.unidades.values()],
       'Todas',
       (unidad) => `${unidad.CODIGO} · ${unidad.PLACAS}`,
+    );
+    fillSelect(
+      document.getElementById('ex-filter-estatus'),
+      [...state.estatus.values()],
+      'Todos',
+      (row) => row.NOMBRE,
     );
   }
 
@@ -229,8 +246,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.filters.id_unidad) {
       params.set('id_unidad', state.filters.id_unidad);
     }
-    if (state.filters.abierta) {
-      params.set('abierta', state.filters.abierta);
+    if (state.filters.id_estatus) {
+      params.set('id_estatus', state.filters.id_estatus);
     }
     if (state.filters.q) {
       params.set('q', state.filters.q);
@@ -240,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function readFilters() {
     state.filters.id_unidad = document.getElementById('ex-filter-unidad').value;
-    state.filters.abierta = document.getElementById('ex-filter-abierta').value;
+    state.filters.id_estatus = document.getElementById('ex-filter-estatus').value;
     state.filters.q = document.getElementById('ex-filter-q').value.trim();
   }
 
@@ -273,9 +290,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('ex-filters-clear').addEventListener('click', async () => {
     document.getElementById('ex-filter-unidad').value = '';
-    document.getElementById('ex-filter-abierta').value = '';
+    document.getElementById('ex-filter-estatus').value = '';
     document.getElementById('ex-filter-q').value = '';
-    state.filters = { id_unidad: '', abierta: '', q: '' };
+    state.filters = { id_unidad: '', id_estatus: '', q: '' };
     state.page = 1;
     await loadList();
   });

@@ -127,6 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showFormError('');
     form.reset();
     document.getElementById('uc-activo').checked = true;
+    document.getElementById('uc-es-receptor').checked = false;
     document.getElementById('uc-id').value = row ? String(row.ID) : '';
     formTitle.textContent = row ? 'Editar categoría' : 'Nueva categoría';
     fillPadreOptions(row ? row.ID : null);
@@ -135,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('uc-codigo').value = row.CODIGO || '';
       document.getElementById('uc-nombre').value = row.NOMBRE || '';
       padreSelect.value = row.PADRE_ID == null ? '' : String(row.PADRE_ID);
+      document.getElementById('uc-es-receptor').checked = Boolean(row.ES_RECEPTOR);
       document.getElementById('uc-activo').checked = Boolean(row.ACTIVO);
     }
 
@@ -149,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRows(rows) {
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-muted-foreground">Sin registros.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-muted-foreground">Sin registros.</td></tr>';
       return;
     }
 
@@ -160,6 +162,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           <td>${escapeHtml(row.CODIGO)}</td>
           <td>${escapeHtml(row.NOMBRE)}</td>
           <td>${row.PADRE_ID == null ? '—' : escapeHtml(categoriaLabel(row.PADRE_ID))}</td>
+          <td>
+            <span class="ui-badge ${row.ES_RECEPTOR ? 'ui-badge-secondary' : 'ui-badge-outline'}">
+              ${row.ES_RECEPTOR ? 'Sí' : 'No'}
+            </span>
+          </td>
           <td>
             <span class="ui-badge ${row.ACTIVO ? 'ui-badge-secondary' : 'ui-badge-outline'}">
               ${row.ACTIVO ? 'Activa' : 'Inactiva'}
@@ -213,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await window.PackingApi.request(buildListUrl());
     if (!result.ok) {
       statusNode.textContent = 'Error al cargar';
-      tbody.innerHTML = '<tr><td colspan="5" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-destructive">No se pudo obtener el catálogo.</td></tr>';
       window.PackingToast.toast(mapError(result.error), 'error');
       if (result.status === 401) {
         window.location.replace('/login');
@@ -342,6 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       CODIGO: document.getElementById('uc-codigo').value.trim(),
       NOMBRE: document.getElementById('uc-nombre').value.trim(),
       PADRE_ID: optionalPadreId(padreSelect.value),
+      ES_RECEPTOR: document.getElementById('uc-es-receptor').checked,
       ACTIVO: document.getElementById('uc-activo').checked,
     };
     const submit = document.getElementById('uc-form-submit');

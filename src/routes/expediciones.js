@@ -15,6 +15,7 @@ const { requireUsuarioUbicacion } = require('../usuarioUbicacion');
 const FIELDS = [
   'ID',
   'ID_UNIDAD',
+  'ID_ESTATUS',
   'FECHA_CIERRE',
   'ID_UBICACION_SALIDA',
   'UBICACION_SALIDA_ID',
@@ -23,6 +24,10 @@ const FIELDS = [
   'CREADO_EN',
   'ACTUALIZADO_EN',
 ].map((name) => `"${name}"`).join(', ');
+
+const ESTATUS_ABIERTO = 1;
+const ESTATUS_TRANSITO = 3;
+const ESTATUS_FINALIZADO = 5;
 
 function parseId(value) {
   if (!/^[1-9]\d*$/.test(value)) {
@@ -103,6 +108,7 @@ function mapRow(row) {
   return {
     ID: Number(row.ID),
     ID_UNIDAD: Number(row.ID_UNIDAD),
+    ID_ESTATUS: Number(row.ID_ESTATUS),
     FECHA_CIERRE: row.FECHA_CIERRE,
     ID_UBICACION_SALIDA: mapNumber(row.ID_UBICACION_SALIDA),
     UBICACION_SALIDA_ID: mapNumber(row.UBICACION_SALIDA_ID),
@@ -128,6 +134,9 @@ function translate(err) {
   if (err.code === '23503') {
     if (err.constraint === 'EXPEDICIONES_ID_UNIDAD_FK') {
       throw httpError(400, 'invalid_id_unidad');
+    }
+    if (err.constraint === 'EXPEDICIONES_ID_ESTATUS_FK') {
+      throw httpError(400, 'invalid_id_estatus');
     }
     if (err.constraint === 'EXPEDICIONES_UBICACION_SALIDA_ID_FK') {
       throw httpError(400, 'invalid_ubicacion_salida_id');
@@ -188,9 +197,20 @@ router.get('/', async (req, res) => {
 
     const abierta = parseOptionalBoolean(req.query.abierta, 'invalid_abierta');
     if (abierta === true) {
-      filters.push('"FECHA_CIERRE" IS NULL');
+      params.push(ESTATUS_ABIERTO);
+      filters.push(`"ID_ESTATUS" = $${params.length}`);
     } else if (abierta === false) {
-      filters.push('"FECHA_CIERRE" IS NOT NULL');
+      params.push(ESTATUS_ABIERTO);
+      filters.push(`"ID_ESTATUS" <> $${params.length}`);
+    }
+
+    const idEstatus = parseOptionalPositiveInt(
+      req.query.id_estatus,
+      'invalid_id_estatus',
+    );
+    if (idEstatus !== null) {
+      params.push(idEstatus);
+      filters.push(`"ID_ESTATUS" = $${params.length}`);
     }
 
     const q = parseOptionalQueryText(req.query.q, 'invalid_q');
@@ -418,6 +438,73 @@ router.get('/:id/recepciones', async (req, res) => {
     await listRecepciones(req, res, id);
   } catch (err) {
     translate(err);
+  }
+});
+
+router.post('/:id/finalizar', async (req, res) => {
+  const id = parseId(req.params.id);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT ${FIELDS} FROM "EXPEDICIONES" WHERE "ID" = $1 FOR UPDATE`,
+      [id],
+    );
+    const row = existing.rows[0];
+    if (!row) {
+      throw httpError(404, 'not_found');
+    }
+    if (Number(row.ID_ESTATUS) !== ESTATUS_TRANSITO) {
+      throw httpError(409, 'expedicion_no_finalizable');
+    }
+
+    const abiertas = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM "RECEPCIONES"
+       WHERE "ID_EXPEDICION" = $1
+         AND "FECHA_CIERRE" IS NULL`,
+      [id],
+    );
+    if (abiertas.rows[0].total > 0) {
+      throw httpError(409, 'expedicion_recepcion_abierta');
+    }
+
+    const pendientes = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM "EXPEDICIONES_LOTES" AS el
+       WHERE el."ID_EXPEDICION" = $1
+         AND NOT EXISTS (
+           SELECT 1
+           FROM "RECEPCIONES_LOTES" AS rl
+           JOIN "RECEPCIONES" AS r ON r."ID" = rl."ID_RECEPCION"
+           WHERE rl."ID_LOTE" = el."ID_LOTE"
+             AND r."ID_EXPEDICION" = $1
+         )`,
+      [id],
+    );
+    if (pendientes.rows[0].total > 0) {
+      throw httpError(409, 'expedicion_carga_incompleta');
+    }
+
+    await client.query(
+      'SELECT expedicion_registrar_estatus($1, $2)',
+      [id, ESTATUS_FINALIZADO],
+    );
+    const updated = await client.query(
+      `SELECT ${FIELDS} FROM "EXPEDICIONES" WHERE "ID" = $1`,
+      [id],
+    );
+    await client.query('COMMIT');
+    sendData(res, 200, mapRow(updated.rows[0]));
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore rollback errors
+    }
+    translate(err);
+  } finally {
+    client.release();
   }
 });
 
