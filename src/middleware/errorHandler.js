@@ -9,7 +9,15 @@ function errorHandler(err, req, res, next) {
   const status = err.status || err.statusCode || 500;
 
   if (status >= 500) {
-    console.error('request failed', err.code || err.message);
+    console.error(
+      'request failed',
+      err.code || '',
+      err.message || err,
+      err.detail || '',
+      err.hint || '',
+      err.table || '',
+      err.column || '',
+    );
   }
 
   sendError(res, status, {
